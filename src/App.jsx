@@ -414,4 +414,3654 @@ function buildPurchasePayload(service, form, amount) {
     case "Cable TV":
       return { type: "cable", network: form.cableProvider || "", target: form.smartcard || "", planName: form.package || undefined };
     case "Electricity":
-      return { type: "electricity", network: form.disco || "", targ
+      return { type: "electricity", network: form.disco || "", target: form.meter || "" };
+    case "Exam Pin":
+      return { type: "exam-pin", network: form.examType || "", target: String(form.quantity || 1) };
+    case "Airtime 2 Cash":
+      return {
+        type: "airtime2cash",
+        network: form.network || "",
+        target: form.phone || "",
+        payoutBankName: form.bankName || undefined,
+        payoutAccountNumber: form.accountNumber || undefined,
+      };
+    default:
+      return { type: "airtime", network: form.network || "", target: form.phone || "" };
+  }
+}
+
+function getTxDescription(service, form) {
+  switch (service) {
+    case "Mobile Data":
+      return `Data sent to ${form.phone || ""}`;
+    case "Airtime":
+      return `${(form.network || "").toLowerCase()} airtime to ${form.phone || ""}`;
+    case "Cable TV":
+      return `${form.cableProvider || ""} sub for ${form.smartcard || ""}`;
+    case "Electricity":
+      return `${form.disco || ""} bill for meter ${form.meter || ""}`;
+    case "Exam Pin":
+      return `${form.examType || ""} pin x${form.quantity || 1}`;
+    case "Airtime 2 Cash":
+      return `${(form.network || "").toLowerCase()} airtime2cash - ${form.phone || ""}`;
+    default:
+      return service;
+  }
+}
+
+const HomeContent = React.memo(function HomeContent({
+  theme,
+  showBalance,
+  setShowBalance,
+  balance,
+  setShowFundModal,
+  authForm,
+  virtualAccounts,
+  dashCopied,
+  setDashCopied,
+  services,
+  transactions,
+  setViewingTx,
+  openService,
+}) {
+  return (
+    <div className="px-4 flex flex-col gap-4">
+      {/* Main Wallet */}
+      <div className={`${theme.card} rounded-2xl p-5 transition-colors duration-300`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className={`w-9 h-9 rounded-full ${theme.iconBg} flex items-center justify-center`}>
+              <Wallet size={16} className="text-blue-400" />
+            </div>
+            <span className={`${theme.label} text-xs font-semibold tracking-wider`}>
+              MAIN WALLET
+            </span>
+          </div>
+          <button
+            onClick={() => setShowBalance(!showBalance)}
+            className={`w-10 h-10 rounded-full ${theme.pillBg} flex items-center justify-center`}
+          >
+            {showBalance ? (
+              <EyeOff size={16} className={theme.label} />
+            ) : (
+              <Eye size={16} className={theme.label} />
+            )}
+          </button>
+        </div>
+        <p className={`${theme.subtext} text-sm mb-1`}>Wallet Balance</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center text-3xl font-bold">
+            <span className="text-blue-400 mr-1">₦</span>
+            <span>{showBalance ? balance.toFixed(2) : "••••"}</span>
+          </div>
+          <button
+            onClick={() => setShowFundModal(true)}
+            className="border border-blue-500 text-blue-400 text-sm font-medium rounded-full px-4 py-2"
+          >
+            Add Money
+          </button>
+        </div>
+      </div>
+
+      {/* My Wallet */}
+      <div className={`${theme.card} rounded-2xl p-5 transition-colors duration-300`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className={`w-9 h-9 rounded-full ${theme.iconBg} flex items-center justify-center`}>
+              <Wallet size={16} className="text-blue-400" />
+            </div>
+            <span className={`${theme.label} text-xs font-semibold tracking-wider`}>
+              MY WALLET
+            </span>
+          </div>
+          <button className={`w-10 h-10 rounded-full ${theme.pillBg} flex items-center justify-center`}>
+            <ChevronRight size={18} className={theme.label} />
+          </button>
+        </div>
+        <p className={`${theme.subtext} text-sm mb-1`}>Account Number</p>
+        {virtualAccounts?.paga ? (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xl font-bold">{virtualAccounts.paga}</p>
+              <button
+                onClick={() => {
+                  if (navigator?.clipboard) {
+                    navigator.clipboard.writeText(virtualAccounts.paga).catch(() => {});
+                  }
+                  setDashCopied(true);
+                  setTimeout(() => setDashCopied(false), 1500);
+                }}
+                className="border border-blue-500 text-blue-400 text-xs font-medium rounded-full px-4 py-2"
+              >
+                {dashCopied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`${theme.subtext} text-sm mb-1`}>Bank Name</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-orange-500" />
+                  <span className="font-semibold">Paga</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`${theme.subtext} text-sm mb-1`}>Account Name</p>
+                <span className="font-semibold">{authForm?.username || "Pancity User"}</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className={`text-sm ${theme.subtext} mb-1`}>
+            Your virtual account is generated automatically when you create a Pancity account.
+          </p>
+        )}
+      </div>
+
+      {/* Services */}
+      <div className={`${theme.cardSoft} rounded-2xl p-5 transition-colors duration-300`}>
+        <p className={`${theme.subtext} text-xs font-semibold tracking-wider mb-4`}>
+          SERVICES
+        </p>
+        <div className="grid grid-cols-3 gap-y-6">
+          {services.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => openService(s.label)}
+              className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
+            >
+              {s.customIcon === "airtime" ? (
+                <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="6" y="3" width="14" height="22" rx="3" stroke={s.color} strokeWidth="2" />
+                  <rect x="10.5" y="6.5" width="7" height="1.6" rx="0.8" fill={s.color} opacity="0.5" />
+                  <circle cx="13" cy="22" r="1.1" fill={s.color} />
+                </svg>
+              ) : (
+                <s.icon size={30} color={s.color} strokeWidth={1.8} />
+              )}
+              <span className={`text-xs ${theme.text} text-center`}>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div>
+        <p className={`${theme.subtext} text-xs font-semibold tracking-wider mb-3 px-1`}>
+          RECENT TRANSACTIONS
+        </p>
+        {transactions.length === 0 ? (
+          <div className={`${theme.card} rounded-2xl p-6 flex flex-col items-center`}>
+            <Clock size={28} className={theme.navInactive} />
+            <p className={`text-xs ${theme.subtext} mt-2`}>No transactions yet</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {transactions.map((t, i) => {
+              const meta = TX_META[t.service] || { icon: Clock };
+              const Icon = meta.icon;
+              const isPending = t.status && t.status !== "Completed";
+              const statusStyle = STATUS_STYLES[t.status] || STATUS_STYLES.Completed;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setViewingTx(t)}
+                  className={`w-full ${theme.card} rounded-2xl px-4 py-4 flex items-center justify-between text-left transition-colors duration-300`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-2xl ${theme.iconBg} flex items-center justify-center shrink-0`}>
+                      <Icon size={18} className="text-blue-400" />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-bold ${theme.text}`}>{t.title}</p>
+                      <p className={`text-xs ${theme.subtext}`}>{t.description}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 pl-2">
+                    <p className={`text-sm font-bold ${isPending ? theme.text : "text-red-400"}`}>
+                      {isPending ? "+" : "-"}₦{t.amount.toLocaleString()}
+                    </p>
+                    {isPending ? (
+                      <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-lg mt-0.5 ${statusStyle.bg} ${statusStyle.text}`}>
+                        {t.status}
+                      </span>
+                    ) : (
+                      <p className={`text-xs ${theme.subtext} mt-0.5`}>
+                        {new Date(t.date).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+function VTUDashboardInner() {
+  const [screen, setScreen] = useState("splash"); // splash | onboarding | auth | dashboard
+  const [authMode, setAuthMode] = useState("login"); // login | signup
+  const [authForm, setAuthForm] = useState({});
+  // Virtual account numbers already generated for this user, keyed by bank key.
+  // Paga is auto-provisioned server-side the moment a new account is created
+  // (see applyPagaAccount below, filled from the signup response) and is
+  // treated as one of the payment gateways, same as any bank an admin
+  // enables from PancityDashboard.
+  const [virtualAccounts, setVirtualAccounts] = useState({});
+  const [authenticating, setAuthenticating] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [showBalance, setShowBalance] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [activeTab, setActiveTab] = useState("home"); // home | earnings | wallet | profile
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [dashCopied, setDashCopied] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullStartY = React.useRef(null);
+  const [transactions, setTransactions] = useState([]);
+  const [viewingTx, setViewingTx] = useState(null);
+  // Real value comes from GET /wallet/me right after login (see the effect
+  // below) — 0 is just the placeholder shown for the instant before that.
+  const [balance, setBalance] = useState(0);
+  // Referral earnings + cashback accrue here separately from the main wallet
+  // balance until the user chooses to withdraw them (see EarningsPage).
+  const [earningsBalance, setEarningsBalance] = useState(0);
+  const [accountTier, setAccountTier] = useState("User"); // User | Agent | API
+  const [activeService, setActiveService] = useState(null);
+
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = activeService ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [activeService]);
+  const [showFundModal, setShowFundModal] = useState(false);
+  // Banks shown in Fund Wallet come from what the admin has added in the
+  // PancityDashboard "Payment Gateways" module — loaded from GET
+  // /admin/payment-gateways in the effect below. Empty until that call
+  // returns at least one enabled gateway.
+  const [enabledPaymentGateways, setEnabledPaymentGateways] = useState([]);
+  const [status, setStatus] = useState("form"); // form | confirm | success
+  const [form, setForm] = useState({});
+  const [txPin, setTxPin] = useState("");
+  const [txPinError, setTxPinError] = useState(false);
+  const [txErrorMessage, setTxErrorMessage] = useState("");
+  const [txAuthenticating, setTxAuthenticating] = useState(false);
+  const [txAmount, setTxAmount] = useState(0);
+  const [txReference, setTxReference] = useState("");
+  const [txBalanceBefore, setTxBalanceBefore] = useState(0);
+  const [txBalanceAfter, setTxBalanceAfter] = useState(0);
+  const [txStatus, setTxStatus] = useState("Completed");
+  const [savedBankAccount, setSavedBankAccount] = useState(null); // { bankName, accountNumber }
+  // Data bundles + prices as configured by the admin — empty until GET
+  // /admin/data-plans (in the effect below) returns whatever they've added.
+  const [dataPlans, setDataPlans] = useState([]);
+
+  // Loads the real wallet balance + transaction history the moment the
+  // dashboard is shown (right after login/signup). Replaces the old
+  // hardcoded ₦15.00 starting balance and empty transaction list.
+  const [walletLoadError, setWalletLoadError] = useState("");
+  React.useEffect(() => {
+    if (screen !== "dashboard") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const wallet = await apiFetch("/wallet/me");
+        if (cancelled) return;
+        setBalance(wallet.balance || 0);
+      } catch (err) {
+        if (!cancelled) {
+          setWalletLoadError(err.message || "Could not load wallet balance");
+          console.error("Wallet load failed:", err.message);
+        }
+      }
+      try {
+        const history = await apiFetch("/transactions/me?limit=50");
+        if (cancelled) return;
+        const items = (history.items || []).map((tx) => {
+          const service =
+            Object.keys(TX_META).find((label) => buildPurchasePayload(label, {}, 0).type === tx.type) ||
+            tx.type;
+          const meta = TX_META[service] || { title: tx.type, icon: Clock };
+          return {
+            title: meta.title,
+            description: tx.planName ? `${meta.title} — ${tx.planName}` : `${meta.title} to ${tx.target}`,
+            service,
+            amount: tx.amount,
+            reference: tx.reference,
+            date: tx.createdAt,
+            formSnapshot: {},
+            balanceBefore: undefined,
+            balanceAfter: undefined,
+            status: tx.status === "success" ? "Completed" : tx.status === "pending" ? "Pending" : tx.status === "failed" ? "Failed" : tx.status,
+          };
+        });
+        setTransactions(items);
+      } catch (err) {
+        if (!cancelled) {
+          setWalletLoadError(err.message || "Could not load transaction history");
+          console.error("Transaction history load failed:", err.message);
+        }
+      }
+      try {
+        const gateways = await apiFetch("/admin/payment-gateways");
+        if (cancelled) return;
+        setEnabledPaymentGateways(gateways.enabled || gateways.gateways || []);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Payment gateways load failed:", err.message);
+        }
+      }
+      try {
+        const plans = await apiFetch("/admin/data-plans");
+        if (cancelled) return;
+        setDataPlans(plans.items || plans.plans || []);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Data plans load failed:", err.message);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [screen]);
+
+  // App-lock: whenever the user leaves the app (backgrounds the tab/PWA) while
+  // logged in and comes back, they must re-enter their PIN or use Thumbprint/Face ID.
+  const [appLocked, setAppLocked] = useState(false);
+  const [lockPin, setLockPin] = useState("");
+  const [lockPinError, setLockPinError] = useState(false);
+  const [lockAuthenticating, setLockAuthenticating] = useState(false);
+  const wasBackgroundedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const armLock = () => {
+      if (screen === "dashboard") wasBackgroundedRef.current = true;
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        armLock();
+      } else if (wasBackgroundedRef.current) {
+        wasBackgroundedRef.current = false;
+        if (screen === "dashboard") {
+          setLockPin("");
+          setLockPinError(false);
+          setAppLocked(true);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    // Covers cases where the app loses focus without firing visibilitychange
+    // (e.g. some in-app browsers / desktop window switches)
+    window.addEventListener("blur", armLock);
+    window.addEventListener("focus", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", armLock);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [screen]);
+
+  const theme = React.useMemo(() => (darkMode
+    ? {
+        bg: "bg-black",
+        card: "bg-zinc-900/90 border border-white/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.4)]",
+        cardSoft: "bg-zinc-900/60 border border-white/[0.05]",
+        text: "text-white",
+        subtext: "text-slate-400",
+        label: "text-slate-300",
+        iconBg: "bg-zinc-950",
+        pillBg: "bg-zinc-800",
+        border: "border-zinc-800",
+        navInactive: "text-slate-500",
+        sheet: "bg-zinc-950",
+        input: "bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600",
+      }
+    : {
+        bg: "bg-gray-50",
+        card: "bg-white border border-slate-100 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_10px_-4px_rgba(15,23,42,0.06)]",
+        cardSoft: "bg-white border border-slate-100 shadow-[0_1px_2px_rgba(15,23,42,0.03)]",
+        text: "text-slate-900",
+        subtext: "text-slate-500",
+        label: "text-slate-600",
+        iconBg: "bg-slate-100",
+        pillBg: "bg-slate-100",
+        border: "border-slate-200",
+        navInactive: "text-slate-400",
+        sheet: "bg-white",
+        input: "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400",
+      }), [darkMode]);
+
+  const services = React.useMemo(() => [
+    { icon: Wifi, label: "Mobile Data", color: "#3B82F6" },
+    { icon: Smartphone, label: "Airtime", color: "#06B6D4", customIcon: "airtime" },
+    { icon: Tv, label: "Cable TV", color: "#F43F5E" },
+    { icon: ArrowLeftRight, label: "Airtime 2 Cash", color: "#0066FF" },
+    { icon: Zap, label: "Electricity", color: "#EAB308" },
+    { icon: FileText, label: "Exam Pin", color: "#3B82F6" },
+  ], []);
+
+  const openService = React.useCallback((label) => {
+    setActiveService(label);
+    setStatus("form");
+    setForm(
+      label === "Airtime 2 Cash" && savedBankAccount
+        ? { bankName: savedBankAccount.bankName, accountNumber: savedBankAccount.accountNumber }
+        : {}
+    );
+    setTxPin("");
+    setTxPinError(false);
+  }, [savedBankAccount]);
+
+  const closeModal = () => {
+    setActiveService(null);
+    setForm({});
+    setTxPin("");
+    setTxPinError(false);
+  };
+
+  const handleFieldChange = (field, value) => {
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      if (field === "phone" && SERVICE_FIELDS[activeService]?.includes("network")) {
+        const detected = detectNetwork(value);
+        if (detected) next.network = detected;
+      }
+      return next;
+    });
+
+    if (field === "plan" && value) {
+      setTimeout(() => handleProceed(), 300);
+    }
+  };
+
+  const PULL_THRESHOLD = 70;
+  const PULL_MAX = 110;
+  const pullRafId = React.useRef(null);
+  const lastPullValue = React.useRef(0);
+
+  const handleTouchStart = (e) => {
+    // Only track the gesture at all if we're already at the very top —
+    // this keeps normal scrolling (down/up) from ever touching this logic.
+    if (window.scrollY <= 0 && !refreshing) {
+      pullStartY.current = e.touches[0].clientY;
+    } else {
+      pullStartY.current = null;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (pullStartY.current === null || refreshing) return;
+    const delta = e.touches[0].clientY - pullStartY.current;
+    if (delta > 0 && window.scrollY <= 0) {
+      const next = Math.min(delta * 0.5, PULL_MAX);
+      lastPullValue.current = next;
+      // Batch the state update to once per animation frame instead of
+      // once per touchmove event (touchmove can fire 60+ times/sec and
+      // each setState here was re-rendering the entire dashboard tree).
+      if (pullRafId.current === null) {
+        pullRafId.current = requestAnimationFrame(() => {
+          setPullDistance(lastPullValue.current);
+          pullRafId.current = null;
+        });
+      }
+    } else if (pullStartY.current !== null) {
+      // Gesture turned into a normal upward scroll — stop tracking it
+      // immediately so no further work happens for the rest of the scroll.
+      pullStartY.current = null;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullRafId.current !== null) {
+      cancelAnimationFrame(pullRafId.current);
+      pullRafId.current = null;
+    }
+    if (pullDistance >= PULL_THRESHOLD && !refreshing) {
+      setRefreshing(true);
+      setPullDistance(PULL_THRESHOLD);
+      setTimeout(() => {
+        setRefreshing(false);
+        setPullDistance(0);
+      }, 1200);
+    } else {
+      setPullDistance(0);
+    }
+    pullStartY.current = null;
+  };
+
+  // Applies the Paga virtual account number the backend generates during
+  // signup (POST /auth/user/signup should return it under
+  // `virtualAccounts.paga`) — it's a real bank account issued server-side,
+  // never invented on the device.
+  const applyPagaAccount = (accountNumber) => {
+    if (!accountNumber || virtualAccounts.paga) return;
+    setVirtualAccounts((prev) => ({ ...prev, paga: accountNumber }));
+    setEnabledPaymentGateways((prev) => (prev.includes("paga") ? prev : [...prev, "paga"]));
+  };
+
+  // Login screen fingerprint button — a real WebAuthn passkey login, only
+  // usable once the person has registered a passkey from Settings >
+  // Fingerprint / Face ID while signed in (registerBiometricCredential).
+  const handleThumbprint = async () => {
+    setAuthenticating(true);
+    setAuthError("");
+    const result = await loginWithBiometricPasskey();
+    setAuthenticating(false);
+    if (result.ok) {
+      setUserAuthToken(result.data.token);
+      applyPagaAccount(result.data.virtualAccounts?.paga);
+      setScreen("dashboard");
+    } else if (result.reason === "unsupported") {
+      setAuthError("This device doesn't support fingerprint/Face ID login.");
+    } else {
+      setAuthError(
+        "Fingerprint login didn't work. Sign in with your password, then enable it from Settings > Fingerprint / Face ID."
+      );
+    }
+  };
+
+  const handleAuthSubmit = async () => {
+    setAuthError("");
+    setAuthSubmitting(true);
+    try {
+      if (authMode === "signup") {
+        const data = await apiFetch("/auth/user/signup", {
+          method: "POST",
+          auth: false,
+          body: {
+            name: authForm.username,
+            email: authForm.email,
+            phone: authForm.phone,
+            password: authForm.password,
+            referral: authForm.referral || undefined,
+          },
+        });
+        setUserAuthToken(data.token);
+        // Transaction PIN was collected on the same signup form — set it now
+        // that we have an authenticated session.
+        if (authForm.pin) {
+          await apiFetch("/auth/user/pin", {
+            method: "POST",
+            body: { pin: authForm.pin },
+          });
+        }
+        applyPagaAccount(data.virtualAccounts?.paga);
+      } else {
+        const data = await apiFetch("/auth/user/login", {
+          method: "POST",
+          auth: false,
+          body: {
+            identifier: authForm.email,
+            password: authForm.password,
+          },
+        });
+        setUserAuthToken(data.token);
+        applyPagaAccount(data.virtualAccounts?.paga);
+      }
+      setScreen("dashboard");
+    } catch (err) {
+      setAuthError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const notifyUser = (title, body) => {
+    if (
+      pushEnabled &&
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
+      try {
+        new Notification(title, { body, icon: pancityLogo });
+      } catch (e) {
+        // ignore — some browsers restrict Notification outside a service worker
+      }
+    }
+  };
+
+  const completeTransaction = async ({ pin, useQuickAuth } = {}) => {
+    const isAirtime2Cash = activeService === "Airtime 2 Cash";
+    const planMatch = form.plan ? dataPlans.find((p) => p.label === form.plan) : null;
+    const airtimeAmt = parseFloat(form.amount) || 0;
+    const payoutAmt = Math.round(airtimeAmt * AIRTIME2CASH_RATE);
+    const amt = planMatch
+      ? getPlanPrice(planMatch.price, accountTier)
+      : isAirtime2Cash
+      ? payoutAmt
+      : airtimeAmt;
+
+    setTxErrorMessage("");
+    setTxPinError(false);
+
+    try {
+      const payload = {
+        ...buildPurchasePayload(activeService, form, amt),
+        amount: amt,
+        ...(useQuickAuth && quickAuthToken ? { quickAuthToken } : { pin }),
+      };
+      const tx = await apiFetch("/transactions/purchase", {
+        method: "POST",
+        body: payload,
+      });
+
+      if (tx.quickAuthToken) setQuickAuthToken(tx.quickAuthToken);
+
+      const balanceBefore = balance;
+      const balanceAfter = tx.status === "failed" ? balanceBefore : Math.max(0, balanceBefore - amt);
+      if (tx.status === "success") {
+        setBalance(balanceAfter);
+      }
+
+      const txStatusValue =
+        tx.status === "success" ? "Completed" : tx.status === "pending" ? "Pending" : "Failed";
+      setTxAmount(amt);
+      setTxReference(tx.reference || "");
+      setTxBalanceBefore(balanceBefore);
+      setTxBalanceAfter(balanceAfter);
+      setTxStatus(txStatusValue);
+
+      if (isAirtime2Cash && form.bankName && form.accountNumber) {
+        setSavedBankAccount({ bankName: form.bankName, accountNumber: form.accountNumber });
+      }
+
+      const meta = TX_META[activeService] || { title: activeService, icon: Clock };
+      setTransactions((list) => [
+        {
+          title: meta.title,
+          description: getTxDescription(activeService, form),
+          service: activeService,
+          amount: amt,
+          reference: tx.reference,
+          date: tx.createdAt || new Date().toISOString(),
+          formSnapshot: { ...form },
+          balanceBefore,
+          balanceAfter,
+          status: txStatusValue,
+        },
+        ...list,
+      ]);
+
+      setStatus("success");
+      if (tx.status === "failed") {
+        notifyUser("Transaction Failed", tx.failureReason || `Your ${activeService} purchase failed.`);
+      } else if (isAirtime2Cash) {
+        notifyUser("Request Submitted", "Your Airtime2Cash request is pending review.");
+      } else {
+        notifyUser("Transaction Successful", `Your ${activeService} purchase was successful.`);
+      }
+    } catch (err) {
+      const message = err.message || "Purchase failed. Please try again.";
+      if (/pin/i.test(message)) {
+        setTxPinError(true);
+        setTxPin("");
+      } else {
+        setTxErrorMessage(message);
+        setTxPin("");
+      }
+    }
+  };
+
+  const handleProceed = () => {
+    setTxPin("");
+    setTxPinError(false);
+    setTxErrorMessage("");
+    setStatus("confirm");
+  };
+
+  const handleTxPinChange = (digits) => {
+    setTxPin(digits);
+    if (digits.length === 4) {
+      setTxPinError(false);
+      setTimeout(() => completeTransaction({ pin: digits }), 250);
+    }
+  };
+
+  const handleTxThumbprint = async () => {
+    setTxAuthenticating(true);
+    const result = await tryDeviceBiometric();
+    if (result === "unsupported" || result === "success") {
+      setTxAuthenticating(false);
+      // Only usable if a real PIN was entered in the last 5 minutes (backend
+      // enforces this via quickAuthToken) — otherwise fall back to asking
+      // for the PIN, since a device unlock alone isn't proof of the
+      // transaction PIN.
+      if (quickAuthToken) {
+        completeTransaction({ useQuickAuth: true });
+      } else {
+        setTxErrorMessage("Please enter your PIN first to unlock quick fingerprint purchases.");
+      }
+    } else {
+      setTxAuthenticating(false);
+    }
+  };
+
+  // Verifies the app-lock PIN against the backend (POST /auth/user/verify-pin,
+  // same convention as /auth/user/pin) instead of comparing it client-side
+  // against a plaintext copy sitting in React state.
+  const handleLockPinChange = (digits) => {
+    setLockPin(digits);
+    if (digits.length === 4) {
+      apiFetch("/auth/user/verify-pin", { method: "POST", body: { pin: digits } })
+        .then(() => {
+          setLockPinError(false);
+          setTimeout(() => {
+            setAppLocked(false);
+            setLockPin("");
+          }, 250);
+        })
+        .catch(() => {
+          setLockPinError(true);
+          setTimeout(() => {
+            setLockPin("");
+            setLockPinError(false);
+          }, 700);
+        });
+    }
+  };
+
+  const handleLockThumbprint = async () => {
+    setLockAuthenticating(true);
+    const result = await tryDeviceBiometric();
+    if (result === "unsupported") {
+      setTimeout(() => {
+        setLockAuthenticating(false);
+        setAppLocked(false);
+        setLockPin("");
+      }, 1200);
+    } else if (result === "success") {
+      setLockAuthenticating(false);
+      setAppLocked(false);
+      setLockPin("");
+    } else {
+      setLockAuthenticating(false);
+    }
+  };
+
+  if (screen === "splash") {
+    return (
+      <SplashScreen
+        theme={theme}
+        onFinish={() => setScreen("onboarding")}
+      />
+    );
+  }
+
+  if (screen === "onboarding") {
+    return (
+      <OnboardingScreen
+        onDone={() => setScreen("auth")}
+      />
+    );
+  }
+
+  if (screen === "auth") {
+    return (
+      <AuthScreen
+        theme={theme}
+        darkMode={darkMode}
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        authForm={authForm}
+        setAuthForm={setAuthForm}
+        authenticating={authenticating}
+        authSubmitting={authSubmitting}
+        authError={authError}
+        onThumbprint={handleThumbprint}
+        onSubmit={handleAuthSubmit}
+      />
+    );
+  }
+
+  if (screen === "dashboard" && appLocked) {
+    return (
+      <LockScreen
+        theme={theme}
+        darkMode={darkMode}
+        pin={lockPin}
+        pinError={lockPinError}
+        onPinChange={handleLockPinChange}
+        onThumbprint={handleLockThumbprint}
+        thumbprintBusy={lockAuthenticating}
+      />
+    );
+  }
+
+  return (
+    <div className={`min-h-screen ${theme.bg} ${theme.text} flex justify-center transition-colors duration-300`}>
+      <style>{`
+        button, [role="button"] {
+          -webkit-tap-highlight-color: transparent;
+          transition: transform 0.15s cubic-bezier(0.4,0,0.2,1), opacity 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
+        }
+        button:active:not(:disabled), [role="button"]:active {
+          transform: scale(0.96);
+          opacity: 0.85;
+        }
+        input, textarea, select {
+          transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
+        }
+        ::selection { background: rgba(59,130,246,0.25); }
+      `}</style>
+      <div
+        className={`w-full max-w-sm min-h-screen ${theme.bg} flex flex-col transition-colors duration-300 relative`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Pull to refresh indicator */}
+        <div
+          className="flex items-center justify-center overflow-hidden transition-[height] duration-200"
+          style={{ height: pullDistance }}
+        >
+          <div
+            className={`w-6 h-6 rounded-full border-2 border-blue-500 border-t-transparent ${
+              refreshing || pullDistance >= PULL_THRESHOLD ? "animate-spin" : ""
+            }`}
+            style={{
+              transform: refreshing ? "none" : `rotate(${pullDistance * 3}deg)`,
+              opacity: Math.min(pullDistance / PULL_THRESHOLD, 1),
+            }}
+          />
+        </div>
+
+        {/* Status bar spacer */}
+        <div className="h-3" />
+
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 pt-2 pb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setActiveTab("profile")}
+              className={`w-12 h-12 rounded-2xl overflow-hidden active:scale-95 transition-transform p-1.5 ${
+                darkMode ? "bg-slate-900 border border-slate-800" : "bg-blue-50 border border-blue-100"
+              }`}
+            >
+              <img src={pancityLogo} alt="Pancity" className="w-full h-full object-contain" />
+            </button>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`w-14 h-8 rounded-full ${darkMode ? "bg-blue-950 border border-blue-800" : "bg-blue-100 border border-blue-300"} flex items-center px-1 transition-colors`}
+            >
+              <div
+                className={`w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center transition-transform duration-300 ${
+                  darkMode ? "translate-x-0" : "translate-x-6"
+                }`}
+              >
+                {darkMode ? (
+                  <Moon size={14} className="text-black" />
+                ) : (
+                  <Sun size={14} className="text-black" />
+                )}
+              </div>
+            </button>
+          </div>
+          <button className={`w-11 h-11 rounded-full ${theme.iconBg} flex items-center justify-center`}>
+            <Bell size={18} className="text-blue-400" />
+          </button>
+        </div>
+
+        {activeTab === "home" && (
+          <HomeContent
+            theme={theme}
+            showBalance={showBalance}
+            setShowBalance={setShowBalance}
+            balance={balance}
+            setShowFundModal={setShowFundModal}
+            authForm={authForm}
+            virtualAccounts={virtualAccounts}
+            dashCopied={dashCopied}
+            setDashCopied={setDashCopied}
+            services={services}
+            transactions={transactions}
+            setViewingTx={setViewingTx}
+            openService={openService}
+          />
+        )}
+
+        {activeTab === "support" && <SupportScreen theme={theme} />}
+
+        {activeTab === "profile" && (
+          <ProfileScreen
+            theme={theme}
+            authForm={authForm}
+            setAuthForm={setAuthForm}
+            pushEnabled={pushEnabled}
+            setPushEnabled={setPushEnabled}
+            accountTier={accountTier}
+            setAccountTier={setAccountTier}
+            onLogout={() => setScreen("auth")}
+          />
+        )}
+
+        <div className="flex-1" />
+
+        {/* Bottom Nav */}
+        <div className={`grid grid-cols-4 ${theme.bg} border-t ${theme.border} px-2 py-3 transition-colors duration-300`}>
+          <NavItem icon={Home} label="Home" active={activeTab === "home"} theme={theme} onClick={() => setActiveTab("home")} />
+          <NavItem icon={Gift} label="Earnings" active={activeTab === "earnings"} theme={theme} onClick={() => setActiveTab("earnings")} />
+          <NavItem icon={LifeBuoy} label="Support" active={activeTab === "support"} theme={theme} onClick={() => setActiveTab("support")} />
+          <NavItem icon={User} label="Me" active={activeTab === "profile"} theme={theme} onClick={() => setActiveTab("profile")} />
+        </div>
+      </div>
+
+      {/* Service Page */}
+      {activeService && (
+        <div className={`fixed inset-0 z-50 flex justify-center ${theme.bg}`}>
+          <div
+            className={`relative w-full max-w-sm min-h-screen ${theme.sheet} p-6 pb-8 overflow-y-auto animate-[slideUp_0.25s_ease-out]`}
+          >
+            <style>{`@keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+            <div className="h-3" />
+
+            {status === "form" && (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className={`text-lg font-bold ${theme.text}`}>{activeService}</h2>
+                  <button onClick={closeModal} className={`w-9 h-9 rounded-full ${theme.pillBg} flex items-center justify-center`}>
+                    <X size={16} className={theme.label} />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  {SERVICE_FIELDS[activeService]
+                    .filter((field) => {
+                      if (field === "planType") return !!form.phone;
+                      if (field === "plan") return !!form.planType;
+                      if (
+                        (field === "bankName" || field === "accountNumber") &&
+                        activeService === "Airtime 2 Cash" &&
+                        savedBankAccount
+                      )
+                        return false;
+                      return true;
+                    })
+                    .map((field) => (
+                      <ServiceField
+                        key={field}
+                        field={field}
+                        value={form[field] || ""}
+                        onChange={(v) => handleFieldChange(field, v)}
+                        theme={theme}
+                        formState={form}
+                        accountTier={accountTier}
+                        dataPlans={dataPlans}
+                      />
+                    ))}
+
+                  {activeService === "Airtime 2 Cash" && savedBankAccount && (
+                    <div className={`rounded-2xl border ${theme.border} ${theme.card} px-4 py-3 flex items-center justify-between`}>
+                      <div>
+                        <p className={`text-xs ${theme.subtext}`}>Payout Account</p>
+                        <p className={`text-sm font-semibold ${theme.text}`}>
+                          {savedBankAccount.bankName} • •••{savedBankAccount.accountNumber.slice(-4)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSavedBankAccount(null)}
+                        className="text-xs font-semibold text-blue-500"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  )}
+
+                  {activeService === "Airtime 2 Cash" && (
+                    <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 px-4 py-3">
+                      <p className="text-xs font-semibold text-blue-500 mb-1">
+                        Conversion Rate — {Math.round(AIRTIME2CASH_RATE * 100)}% payout
+                      </p>
+                      <p className={`text-sm font-bold ${theme.text}`}>
+                        ₦{(parseFloat(form.amount) || 1000).toLocaleString()} airtime = ₦
+                        {Math.round((parseFloat(form.amount) || 1000) * AIRTIME2CASH_RATE).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {activeService === "Airtime 2 Cash" && (
+                  <p className={`text-[11px] ${theme.subtext} mt-4 text-center leading-relaxed`}>
+                    {AIRTIME2CASH_NOTE}
+                  </p>
+                )}
+
+                {!SERVICE_FIELDS[activeService]?.includes("plan") && (
+                  <button
+                    onClick={handleProceed}
+                    className="w-full mt-6 bg-blue-500 text-black font-semibold rounded-2xl py-3.5"
+                  >
+                    {activeService === "Airtime 2 Cash" ? "Submit Request" : "Proceed"}
+                  </button>
+                )}
+              </>
+            )}
+
+            {status === "confirm" && (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    onClick={() => setStatus("form")}
+                    className={`w-9 h-9 rounded-full ${theme.pillBg} flex items-center justify-center`}
+                  >
+                    <ChevronRight size={16} className={`${theme.label} rotate-180`} />
+                  </button>
+                  <h2 className={`text-sm font-bold ${theme.text}`}>Confirm Transaction</h2>
+                  <button onClick={closeModal} className={`w-9 h-9 rounded-full ${theme.pillBg} flex items-center justify-center`}>
+                    <X size={16} className={theme.label} />
+                  </button>
+                </div>
+
+                <p className={`text-xs ${theme.subtext} text-center mt-4 mb-3`}>
+                  {txPinError
+                    ? "Wrong PIN, try again"
+                    : txErrorMessage
+                    ? txErrorMessage
+                    : "Enter your Transaction PIN to continue"}
+                </p>
+                <PinKeypad
+                  theme={theme}
+                  value={txPin}
+                  onChange={handleTxPinChange}
+                  error={txPinError}
+                  onThumbprint={handleTxThumbprint}
+                  thumbprintBusy={txAuthenticating}
+                />
+              </>
+            )}
+
+            {status === "success" && (
+              <ReceiptView
+                theme={theme}
+                activeService={activeService}
+                form={form}
+                amount={txAmount}
+                reference={txReference}
+                balanceBefore={txBalanceBefore}
+                balanceAfter={txBalanceAfter}
+                status={txStatus}
+                onClose={closeModal}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Fund Wallet Modal */}
+      {showFundModal && (
+        <FundWalletModal
+          theme={theme}
+          username={authForm?.username || "Pancity User"}
+          enabledBanks={enabledPaymentGateways}
+          initialAccounts={virtualAccounts}
+          onClose={() => setShowFundModal(false)}
+        />
+      )}
+
+      {/* Earnings Page */}
+      {activeTab === "earnings" && (
+        <EarningsPage
+          theme={theme}
+          authForm={authForm}
+          earningsBalance={earningsBalance}
+          onWithdraw={() => {
+            if (earningsBalance <= 0) return;
+            const amount = earningsBalance;
+            setBalance((b) => b + amount);
+            setEarningsBalance(0);
+            setTransactions((list) => [
+              {
+                title: "Earnings Withdrawal",
+                description: "Referral & cashback earnings withdrawn to wallet",
+                service: "Earnings Withdrawal",
+                amount: amount,
+                reference: "PNC" + Date.now().toString().slice(-8) + Math.floor(Math.random() * 90 + 10),
+                date: new Date().toISOString(),
+                formSnapshot: {},
+                balanceBefore: balance,
+                balanceAfter: balance + amount,
+                status: "Completed",
+              },
+              ...list,
+            ]);
+            notifyUser("Withdrawal Successful", `₦${amount.toFixed(2)} was added to your wallet.`);
+          }}
+          openService={(label) => {
+            setActiveTab("home");
+            openService(label);
+          }}
+          onClose={() => setActiveTab("home")}
+        />
+      )}
+
+      {/* Transaction Receipt Page (opened by tapping a past transaction) */}
+      {viewingTx && (
+        <div className={`fixed inset-0 z-50 flex justify-center ${theme.bg}`}>
+          <div className={`relative w-full max-w-sm min-h-screen ${theme.bg} p-6 pb-8 overflow-y-auto`}>
+            <div className="h-3" />
+            <ReceiptView
+              theme={theme}
+              activeService={viewingTx.service}
+              form={viewingTx.formSnapshot}
+              amount={viewingTx.amount}
+              reference={viewingTx.reference}
+              balanceBefore={viewingTx.balanceBefore}
+              balanceAfter={viewingTx.balanceAfter}
+              status={viewingTx.status}
+              onClose={() => setViewingTx(null)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LockScreen({ theme, darkMode, pin, pinError, onPinChange, onThumbprint, thumbprintBusy }) {
+  const l = darkMode
+    ? { bg: "bg-black", text: "text-white", subtext: "text-slate-400" }
+    : { bg: "bg-white", text: "text-slate-900", subtext: "text-slate-500" };
+
+  return (
+    <div className={`min-h-screen ${l.bg} ${l.text} flex justify-center transition-colors duration-300`}>
+      <div className="w-full max-w-sm min-h-screen flex flex-col px-6">
+        <div className="flex-1" />
+        <div className="flex flex-col items-center pb-6">
+          <img
+            src={pancityLogo}
+            alt="Pancity"
+            className="w-16 h-16 mb-4"
+            style={{ objectFit: "contain" }}
+          />
+          <h1 className="text-lg font-bold mb-1">Welcome back</h1>
+          <p className={`text-xs ${pinError ? "text-red-500" : l.subtext} text-center`}>
+            {pinError ? "Wrong PIN, try again" : "Enter your PIN or use Thumbprint to continue"}
+          </p>
+        </div>
+
+        <PinKeypad
+          theme={theme}
+          value={pin}
+          onChange={onPinChange}
+          error={pinError}
+          onThumbprint={onThumbprint}
+          thumbprintBusy={thumbprintBusy}
+        />
+
+        <div className="flex-1" />
+      </div>
+    </div>
+  );
+}
+
+function SplashScreen({ theme, onFinish }) {
+  useEffect(() => {
+    const timer = setTimeout(onFinish, 2200);
+    return () => clearTimeout(timer);
+  }, [onFinish]);
+
+  return (
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center relative">
+      <div className="flex flex-col items-center">
+        <img
+          src={pancityLogo}
+          alt="Pancity"
+          className="w-28 h-28"
+          style={{ objectFit: "contain" }}
+        />
+
+        <h1 className="text-3xl font-extrabold mt-8">
+          <span className="text-slate-900">Pan</span>
+          <span className="text-blue-500">city</span>
+        </h1>
+        <p className="text-xs tracking-widest text-slate-400 mt-3 uppercase">
+          Fast, Secure & Affordable
+        </p>
+
+        <div className="flex items-center gap-1.5 mt-8">
+          <span className="w-2 h-2 rounded-full bg-blue-300 animate-pulse" style={{ animationDelay: "0ms" }} />
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" style={{ animationDelay: "150ms" }} />
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: "300ms" }} />
+        </div>
+      </div>
+
+      <p className="absolute bottom-10 text-[10px] tracking-widest text-slate-300 font-semibold">
+        © 2026 PANCITY
+      </p>
+    </div>
+  );
+}
+
+const ONBOARDING_SLIDES = [
+  {
+    icon: Zap,
+    color: "#0066FF",
+    title: "All Your Services, One App",
+    description:
+      "Buy data, airtime, electricity, cable TV, and exam pins instantly, all in one place.",
+  },
+  {
+    icon: Lock,
+    color: "#3B82F6",
+    title: "Fast & Secure Transactions",
+    description:
+      "Every transaction is protected with a secure PIN and fingerprint authentication.",
+  },
+  {
+    icon: Wallet,
+    color: "#F59E0B",
+    title: "Fund Your Wallet Easily",
+    description:
+      "Generate your own virtual account and fund your wallet in seconds, anytime you need to.",
+  },
+];
+
+function OnboardingScreen({ onDone }) {
+  const [step, setStep] = useState(0);
+  const slide = ONBOARDING_SLIDES[step];
+  const isLast = step === ONBOARDING_SLIDES.length - 1;
+
+  return (
+    <div className="min-h-screen bg-white flex justify-center">
+      <div className="w-full max-w-sm min-h-screen flex flex-col px-8 pb-8">
+        <div className="flex justify-end pt-6">
+          <button
+            onClick={onDone}
+            className="text-sm font-medium text-slate-400"
+          >
+            Skip
+          </button>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <div
+            className="w-28 h-28 rounded-3xl flex items-center justify-center mb-8"
+            style={{ backgroundColor: `${slide.color}20` }}
+          >
+            <slide.icon size={52} color={slide.color} />
+          </div>
+          <h2 className="text-xl font-extrabold text-slate-900 mb-3">
+            {slide.title}
+          </h2>
+          <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
+            {slide.description}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {ONBOARDING_SLIDES.map((_, i) => (
+            <div
+              key={i}
+              className={`h-2 rounded-full transition-all ${
+                i === step ? "w-6 bg-blue-500" : "w-2 bg-zinc-300"
+              }`}
+            />
+          ))}
+        </div>
+
+        <button
+          onClick={() => (isLast ? onDone() : setStep((s) => s + 1))}
+          className="w-full font-semibold rounded-2xl py-4 text-white bg-blue-500"
+        >
+          {isLast ? "Get Started" : "Next"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const EARNING_METHODS = [
+  { icon: Gift, label: "Refer a Friend", desc: "Earn ₦100 when they fund their wallet", color: "#0066FF" },
+  { icon: Database, label: "Buy Data & Earn", desc: "Get 1% cashback on every data purchase", color: "#3B82F6" },
+  { icon: Smartphone, label: "Buy Airtime & Earn", desc: "Get 1% cashback on every airtime top-up", color: "#06B6D4" },
+];
+
+function EarningsPage({ theme, authForm, earningsBalance, onWithdraw, openService, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawn, setWithdrawn] = useState(false);
+
+  const referralCode = authForm?.username || "your-username";
+
+  const handleCopyCode = async () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(referralCode);
+      } catch (e) {
+        // clipboard blocked — ignore, nothing more we can do here
+      }
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleMethodTap = (label) => {
+    if (label === "Refer a Friend") {
+      handleCopyCode();
+    } else if (label === "Buy Data & Earn") {
+      openService("Mobile Data");
+    } else if (label === "Buy Airtime & Earn") {
+      openService("Airtime");
+    }
+  };
+
+  const handleWithdraw = () => {
+    if (!earningsBalance || earningsBalance <= 0 || withdrawing) return;
+    setWithdrawing(true);
+    setTimeout(() => {
+      onWithdraw();
+      setWithdrawing(false);
+      setWithdrawn(true);
+      setTimeout(() => setWithdrawn(false), 1500);
+    }, 600);
+  };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex justify-center ${theme.bg}`}>
+      <div className={`relative w-full max-w-sm min-h-screen ${theme.bg} ${theme.text} p-6 pb-8 overflow-y-auto`}>
+        <div className="h-3" />
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-bold">Earnings</h2>
+          <button onClick={onClose} className={`w-9 h-9 rounded-full ${theme.pillBg} flex items-center justify-center`}>
+            <X size={16} className={theme.label} />
+          </button>
+        </div>
+
+        <div className={`${theme.card} rounded-2xl p-5`}>
+          <p className={`${theme.subtext} text-xs font-semibold tracking-wider mb-1`}>
+            TOTAL EARNINGS
+          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center text-3xl font-bold">
+              <span className="text-blue-400 mr-1">₦</span>
+              <span>{(earningsBalance || 0).toFixed(2)}</span>
+            </div>
+            <button
+              onClick={handleWithdraw}
+              disabled={!earningsBalance || earningsBalance <= 0 || withdrawing}
+              className="bg-blue-500 text-white text-xs font-semibold rounded-full px-4 py-2 disabled:opacity-40"
+            >
+              {withdrawing ? "Withdrawing..." : withdrawn ? "Withdrawn!" : "Withdraw to Wallet"}
+            </button>
+          </div>
+          <p className={`text-xs ${theme.subtext} mb-4`}>
+            Referral bonuses and cashback build up here. Withdraw anytime to move them into your main wallet balance.
+          </p>
+          <div className={`rounded-2xl ${theme.pillBg} px-4 py-3 flex items-center justify-between`}>
+            <div>
+              <p className={`text-xs ${theme.subtext} mb-0.5`}>Your Referral Code</p>
+              <p className="font-semibold tracking-wide">{referralCode}</p>
+            </div>
+            <button
+              onClick={handleCopyCode}
+              className="border border-blue-500 text-blue-400 text-xs font-medium rounded-full px-4 py-2"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+
+        <p className={`${theme.subtext} text-xs font-semibold tracking-wider px-1 mt-5 mb-3`}>
+          WAYS TO EARN
+        </p>
+        <div className="flex flex-col gap-3">
+          {EARNING_METHODS.map((m, i) => (
+            <button
+              key={i}
+              onClick={() => handleMethodTap(m.label)}
+              className={`w-full text-left ${theme.card} rounded-2xl p-4 flex items-center gap-3`}
+            >
+              <div
+                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `${m.color}20` }}
+              >
+                <m.icon size={20} color={m.color} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">{m.label}</p>
+                <p className={`text-xs ${theme.subtext}`}>{m.desc}</p>
+              </div>
+              <ChevronRight size={16} className={theme.subtext} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const SAMPLE_TRANSACTIONS = [
+  { label: "MTN Data - 2GB", amount: -800, date: "Today" },
+  { label: "Wallet Funding", amount: 5000, date: "Yesterday" },
+  { label: "Airtime Top-up", amount: -200, date: "Yesterday" },
+  { label: "Electricity Bill", amount: -3500, date: "2 days ago" },
+];
+
+function SupportScreen({ theme }) {
+  const [message, setMessage] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const handleSend = () => {
+    if (!message.trim()) return;
+    setSent(true);
+    setTimeout(() => {
+      setSent(false);
+      setMessage("");
+    }, 1500);
+  };
+
+  return (
+    <div className="px-4 flex flex-col gap-4">
+      <h2 className="text-lg font-bold px-1">Support</h2>
+
+      <div className={`${theme.card} rounded-2xl p-4 flex items-center gap-3`}>
+        <Mail size={18} className="text-blue-400" />
+        <div>
+          <p className="text-sm">Email Us</p>
+          <p className={`text-xs ${theme.subtext}`}>support@pancity.com</p>
+        </div>
+      </div>
+      <div className={`${theme.card} rounded-2xl p-4 flex items-center gap-3`}>
+        <Phone size={18} className="text-blue-400" />
+        <div>
+          <p className="text-sm">Call Us</p>
+          <p className={`text-xs ${theme.subtext}`}>+234 800 000 0000</p>
+        </div>
+      </div>
+
+      <a
+        href="https://wa.me/2348012345678"
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${theme.card} rounded-2xl p-4 flex items-center gap-3`}
+      >
+        <MessageCircle size={18} className="text-[#25D366]" />
+        <div>
+          <p className="text-sm">WhatsApp (Support Line 1)</p>
+          <p className={`text-xs ${theme.subtext}`}>+234 801 234 5678</p>
+        </div>
+      </a>
+      <a
+        href="https://wa.me/2348023456789"
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${theme.card} rounded-2xl p-4 flex items-center gap-3`}
+      >
+        <MessageCircle size={18} className="text-[#25D366]" />
+        <div>
+          <p className="text-sm">WhatsApp (Support Line 2)</p>
+          <p className={`text-xs ${theme.subtext}`}>+234 802 345 6789</p>
+        </div>
+      </a>
+
+      <p className={`text-xs ${theme.subtext} px-1 mt-2`}>Or send us a message</p>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Describe your issue..."
+        rows={4}
+        className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none resize-none ${theme.input}`}
+      />
+
+      <button
+        onClick={handleSend}
+        className="w-full font-semibold rounded-2xl py-4 text-white bg-blue-500 flex items-center justify-center gap-2"
+      >
+        {sent ? (
+          <>
+            <CheckCircle2 size={18} /> Message Sent
+          </>
+        ) : (
+          "Send Message"
+        )}
+      </button>
+    </div>
+  );
+}
+
+function WalletScreen({ theme, balance }) {
+  return (
+    <div className="px-4 flex flex-col gap-4">
+      <div className={`${theme.card} rounded-2xl p-5`}>
+        <p className={`${theme.subtext} text-xs font-semibold tracking-wider mb-1`}>
+          WALLET BALANCE
+        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center text-3xl font-bold">
+            <span className="text-blue-400 mr-1">₦</span>
+            <span>{balance.toFixed(2)}</span>
+          </div>
+          <button className="border border-blue-500 text-blue-400 text-sm font-medium rounded-full px-4 py-2">
+            Add Money
+          </button>
+        </div>
+      </div>
+
+      <div className={`${theme.card} rounded-2xl p-5`}>
+        <p className={`${theme.subtext} text-xs font-semibold tracking-wider mb-3`}>
+          VIRTUAL ACCOUNT
+        </p>
+        <p className={`${theme.subtext} text-sm mb-1`}>Account Number</p>
+        <p className="text-xl font-bold mb-4">1234567890</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={`${theme.subtext} text-sm mb-1`}>Bank Name</p>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-orange-500" />
+              <span className="font-semibold">Paga</span>
+            </div>
+          </div>
+          <button className="border border-blue-500 text-blue-400 text-sm font-medium rounded-full px-5 py-2">
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <p className={`${theme.subtext} text-xs font-semibold tracking-wider px-1`}>
+        RECENT TRANSACTIONS
+      </p>
+      <div className={`${theme.card} rounded-2xl overflow-hidden`}>
+        {SAMPLE_TRANSACTIONS.map((t, i) => (
+          <div
+            key={i}
+            className={`flex items-center justify-between px-5 py-4 ${
+              i !== SAMPLE_TRANSACTIONS.length - 1 ? `border-b ${theme.border}` : ""
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-full ${theme.iconBg} flex items-center justify-center`}>
+                <Clock size={16} className="text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm">{t.label}</p>
+                <p className={`text-xs ${theme.subtext}`}>{t.date}</p>
+              </div>
+            </div>
+            <span className={`text-sm font-semibold ${t.amount < 0 ? "text-red-400" : "text-blue-400"}`}>
+              {t.amount < 0 ? "-" : "+"}₦{Math.abs(t.amount).toLocaleString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+const PROFILE_SECTIONS = [
+  {
+    title: "Account",
+    items: [
+      { emoji: "👤", label: "Edit Profile" },
+      { emoji: "🏷️", label: "Account Type" },
+    ],
+  },
+  {
+    title: "Security",
+    items: [
+      { emoji: "🔒", label: "Change Password" },
+      { emoji: "🔑", label: "Change Transaction PIN" },
+      { emoji: "👆", label: "Fingerprint / Face ID" },
+    ],
+  },
+  {
+    title: "Preferences",
+    items: [{ emoji: "🔔", label: "Notifications" }],
+  },
+  {
+    title: "Support",
+    items: [{ emoji: "💬", label: "Contact Support" }],
+  },
+  {
+    title: "Account",
+    items: [{ emoji: "🚪", label: "Log Out", danger: true }],
+  },
+];
+
+function ProfileScreen({
+  theme,
+  authForm,
+  setAuthForm,
+  pushEnabled,
+  setPushEnabled,
+  accountTier,
+  setAccountTier,
+  onLogout,
+}) {
+  const [panel, setPanel] = useState(null);
+  // null | "editProfile" | "accountType" | "password" | "pin" | "biometric" | "notifications" | "support"
+
+  const panelFor = {
+    "Edit Profile": "editProfile",
+    "Account Type": "accountType",
+    "Change Password": "password",
+    "Change Transaction PIN": "pin",
+    "Fingerprint / Face ID": "biometric",
+    Notifications: "notifications",
+    "Contact Support": "support",
+  };
+
+  return (
+    <div className="px-4 flex flex-col gap-6 pb-4">
+      <div className="flex flex-col items-center pt-2 pb-2">
+        <div className={`w-20 h-20 rounded-full ${theme.iconBg} flex items-center justify-center mb-3`}>
+          <User size={32} className="text-blue-400" />
+        </div>
+        <h2 className="text-lg font-bold">My Profile</h2>
+        <p className={`text-xs ${theme.subtext} mb-2`}>Manage your account and settings</p>
+        <span className="text-[10px] font-bold tracking-wider px-3 py-1 rounded-full bg-blue-500/15 text-blue-500">
+          {accountTier.toUpperCase()} ACCOUNT
+        </span>
+      </div>
+
+      {PROFILE_SECTIONS.map((section, si) => (
+        <div key={si}>
+          <p className={`${theme.subtext} text-xs font-semibold tracking-wider mb-2 px-1`}>
+            {section.title.toUpperCase()}
+          </p>
+          <div className={`${theme.card} rounded-2xl overflow-hidden transition-colors duration-300`}>
+            {section.items.map((item, ii) => (
+              <button
+                key={ii}
+                onClick={
+                  item.label === "Log Out"
+                    ? onLogout
+                    : () => setPanel(panelFor[item.label])
+                }
+                className={`w-full flex items-center justify-between px-5 py-4 ${
+                  ii !== section.items.length - 1 ? `border-b ${theme.border}` : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{item.emoji}</span>
+                  <span className={`text-sm ${item.danger ? "text-red-400" : theme.text}`}>
+                    {item.label}
+                  </span>
+                </div>
+                {!item.danger && <ChevronRight size={18} className={theme.navInactive} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {panel && (
+        <ProfilePanel
+          panel={panel}
+          theme={theme}
+          authForm={authForm}
+          setAuthForm={setAuthForm}
+          pushEnabled={pushEnabled}
+          setPushEnabled={setPushEnabled}
+          accountTier={accountTier}
+          setAccountTier={setAccountTier}
+          onClose={() => setPanel(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PanelHeader({ theme, title, onClose }) {
+  return (
+    <div className="flex items-center gap-4 px-5 pt-6 pb-4">
+      <button
+        onClick={onClose}
+        className={`w-9 h-9 rounded-full ${theme.pillBg} flex items-center justify-center`}
+      >
+        <span className="text-lg">←</span>
+      </button>
+      <h2 className="text-base font-bold">{title}</h2>
+    </div>
+  );
+}
+
+function ToggleRow({ theme, label, sublabel, value, onChange, disabled }) {
+  return (
+    <div className={`flex items-center justify-between px-5 py-4 ${theme.card} rounded-2xl`}>
+      <div>
+        <p className="text-sm">{label}</p>
+        {sublabel && <p className={`text-xs ${theme.subtext} mt-0.5`}>{sublabel}</p>}
+      </div>
+      <button
+        onClick={() => !disabled && onChange(!value)}
+        disabled={disabled}
+        className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors disabled:opacity-60 ${
+          value ? "bg-blue-500" : theme.pillBg
+        }`}
+      >
+        <div
+          className={`w-5 h-5 rounded-full bg-white transition-transform duration-200 ${
+            value ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+function ProfilePanel({
+  panel,
+  theme,
+  authForm,
+  setAuthForm,
+  pushEnabled,
+  setPushEnabled,
+  accountTier,
+  setAccountTier,
+  onClose,
+}) {
+  return (
+    <div className={`fixed inset-0 z-50 flex justify-center ${theme.bg}`}>
+      <div className="w-full max-w-sm min-h-screen flex flex-col overflow-y-auto">
+        {panel === "editProfile" && (
+          <EditProfilePanel theme={theme} authForm={authForm} setAuthForm={setAuthForm} onClose={onClose} />
+        )}
+        {panel === "accountType" && (
+          <AccountTypePanel
+            theme={theme}
+            accountTier={accountTier}
+            setAccountTier={setAccountTier}
+            onClose={onClose}
+          />
+        )}
+        {panel === "password" && <ChangePasswordPanel theme={theme} onClose={onClose} />}
+        {panel === "pin" && <ChangePinPanel theme={theme} onClose={onClose} />}
+        {panel === "biometric" && <BiometricPanel theme={theme} onClose={onClose} />}
+        {panel === "notifications" && (
+          <NotificationsPanel
+            theme={theme}
+            pushEnabled={pushEnabled}
+            setPushEnabled={setPushEnabled}
+            onClose={onClose}
+          />
+        )}
+        {panel === "support" && <SupportPanel theme={theme} onClose={onClose} />}
+      </div>
+    </div>
+  );
+}
+
+function AccountTypePanel({ theme, accountTier, onClose }) {
+  return (
+    <>
+      <PanelHeader theme={theme} title="Account Type" onClose={onClose} />
+      <div className="px-5 flex flex-col gap-3">
+        <div className={`${theme.card} rounded-2xl p-5 flex flex-col items-center text-center`}>
+          <p className={`text-xs ${theme.subtext} mb-2`}>Your Current Account Type</p>
+          <span className="text-2xl font-extrabold text-blue-500 mb-1">{accountTier}</span>
+          <p className={`text-xs ${theme.subtext}`}>
+            Your pricing is set based on this account type.
+          </p>
+        </div>
+
+        <p className={`text-xs ${theme.subtext} px-1`}>
+          Account type upgrades are handled by a Pancity admin. Contact support if you believe your
+          account type should be changed.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function EditProfilePanel({ theme, authForm, setAuthForm, onClose }) {
+  const [name, setName] = useState(authForm?.username || "");
+  const [email, setEmail] = useState(authForm?.email || "");
+  const [phone, setPhone] = useState(authForm?.phone || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    setError("");
+    setSaving(true);
+    try {
+      await apiFetch("/auth/user/profile", {
+        method: "PATCH",
+        body: { name, email, phone },
+      });
+      setAuthForm((f) => ({ ...f, username: name, email, phone }));
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+        onClose();
+      }, 900);
+    } catch (err) {
+      setError(err.message || "Could not save changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <PanelHeader theme={theme} title="Edit Profile" onClose={onClose} />
+      <div className="px-5 flex flex-col gap-4">
+        <AuthInput icon={User} theme={theme} placeholder="Username" value={name} onChange={setName} />
+        <AuthInput icon={Mail} theme={theme} placeholder="Email Address" value={email} onChange={setEmail} type="email" />
+        <AuthInput icon={Phone} theme={theme} placeholder="Phone Number" value={phone} onChange={setPhone} />
+
+        {error && <p className="text-xs text-red-400">{error}</p>}
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full mt-2 font-semibold rounded-2xl py-4 text-white bg-blue-500 flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {saved ? (
+            <>
+              <CheckCircle2 size={18} /> Saved
+            </>
+          ) : saving ? (
+            "Saving..."
+          ) : (
+            "Save Changes"
+          )}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function ChangePasswordPanel({ theme, onClose }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!current || !next || !confirm) {
+      setError("Please fill in all fields.");
+      return;
+    }
+    if (next.length < 6) {
+      setError("New password must be at least 6 characters.");
+      return;
+    }
+    if (next !== confirm) {
+      setError("New passwords do not match.");
+      return;
+    }
+    setError("");
+    setSubmitting(true);
+    try {
+      await apiFetch("/auth/user/change-password", {
+        method: "POST",
+        body: { currentPassword: current, newPassword: next },
+      });
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        onClose();
+      }, 900);
+    } catch (err) {
+      setError(err.message || "Could not update password. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <PanelHeader theme={theme} title="Change Password" onClose={onClose} />
+      <div className="px-5 flex flex-col gap-4">
+        <AuthInput icon={Lock} theme={theme} placeholder="Current Password" value={current} onChange={setCurrent} type="password" />
+        <AuthInput icon={Lock} theme={theme} placeholder="New Password" value={next} onChange={setNext} type="password" />
+        <AuthInput icon={Lock} theme={theme} placeholder="Confirm New Password" value={confirm} onChange={setConfirm} type="password" />
+
+        {error && <p className="text-xs text-red-400">{error}</p>}
+
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full mt-2 font-semibold rounded-2xl py-4 text-white bg-blue-500 flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {success ? (
+            <>
+              <CheckCircle2 size={18} /> Password Updated
+            </>
+          ) : submitting ? (
+            "Updating..."
+          ) : (
+            "Update Password"
+          )}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function ChangePinPanel({ theme, onClose }) {
+  const [step, setStep] = useState("password"); // password | new | confirm | done
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [error, setError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handlePasswordSubmit = () => {
+    if (!password) {
+      setPasswordError("Please enter your login password.");
+      return;
+    }
+    setPasswordError("");
+    setStep("new");
+  };
+
+  const handleNewChange = (v) => {
+    setNewPin(v);
+    if (v.length === 4) {
+      setTimeout(() => setStep("confirm"), 200);
+    }
+  };
+
+  // The password + new PIN are both verified and saved server-side in one
+  // call — if the password turns out to be wrong, the backend rejects it
+  // and we send the person back to the password step with the real reason.
+  const handleConfirmChange = async (v) => {
+    setConfirmPin(v);
+    if (v.length === 4) {
+      if (v !== newPin) {
+        setError(true);
+        setTimeout(() => {
+          setConfirmPin("");
+          setError(false);
+        }, 600);
+        return;
+      }
+      setSubmitting(true);
+      try {
+        await apiFetch("/auth/user/change-pin", {
+          method: "POST",
+          body: { password, newPin: v },
+        });
+        setError(false);
+        setStep("done");
+        setTimeout(onClose, 900);
+      } catch (err) {
+        setStep("password");
+        setPassword("");
+        setNewPin("");
+        setConfirmPin("");
+        setPasswordError(err.message || "Could not update PIN. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
+  const titles = {
+    new: "Create New PIN",
+    confirm: submitting ? "Saving..." : "Confirm New PIN",
+    done: "PIN Updated",
+  };
+
+  return (
+    <>
+      <PanelHeader theme={theme} title="Change Transaction PIN" onClose={onClose} />
+
+      {step === "password" && (
+        <div className="px-5 flex flex-col gap-4">
+          <p className={`text-sm ${theme.subtext}`}>
+            For your security, enter your login password to continue.
+          </p>
+          <AuthInput
+            icon={Lock}
+            theme={theme}
+            placeholder="Login Password"
+            value={password}
+            onChange={setPassword}
+            type="password"
+          />
+          {passwordError && <p className="text-xs text-red-400">{passwordError}</p>}
+          <button
+            onClick={handlePasswordSubmit}
+            className="w-full mt-2 font-semibold rounded-2xl py-4 text-white bg-blue-500"
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {step !== "password" && (
+        <div className="w-full flex flex-col px-6">
+          <div className="flex flex-col items-center pt-8 pb-6">
+            <img
+              src={pancityLogo}
+              alt="Pancity"
+              className="w-16 h-16 mb-3"
+              style={{ objectFit: "contain" }}
+            />
+            <h1 className="text-xl font-bold">Pancity</h1>
+          </div>
+
+          {step === "done" ? (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <CheckCircle2 size={48} className="text-blue-500" />
+              <p className="text-sm font-semibold">Transaction PIN updated</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-center mt-4 mb-1">{titles[step]}</p>
+              <p className={`text-xs ${theme.subtext} text-center mb-3`}>
+                {step === "new"
+                  ? "Create a 4-digit PIN to secure your transactions"
+                  : submitting
+                  ? "Saving your new PIN..."
+                  : error
+                  ? "PINs do not match. Try again."
+                  : "Re-enter your 4-digit PIN"}
+              </p>
+              <PinKeypad
+                theme={theme}
+                value={step === "new" ? newPin : confirmPin}
+                onChange={step === "new" ? handleNewChange : handleConfirmChange}
+                error={step === "confirm" && error}
+              />
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function BiometricPanel({ theme, onClose }) {
+  const [enabled, setEnabled] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [regResult, setRegResult] = useState(null); // null | "success" | "declined" | "unsupported"
+
+  // Turning this on actually registers a passkey with the backend (not just
+  // a device capability check) — that credential is what "Login with
+  // Thumbprint" on the sign-in screen checks against afterwards.
+  const handleToggle = async (turnOn) => {
+    if (!turnOn) {
+      setEnabled(false);
+      setRegResult(null);
+      return;
+    }
+    setRegistering(true);
+    setRegResult(null);
+    const result = await registerBiometricCredential();
+    setRegistering(false);
+    setEnabled(result.ok);
+    setRegResult(result.ok ? "success" : result.reason === "unsupported" ? "unsupported" : "declined");
+  };
+
+  return (
+    <>
+      <PanelHeader theme={theme} title="Fingerprint / Face ID" onClose={onClose} />
+      <div className="px-5 flex flex-col gap-4">
+        <ToggleRow
+          theme={theme}
+          label="Enable Biometric Login"
+          sublabel="Use your fingerprint or Face ID to log in and confirm transactions"
+          value={enabled}
+          onChange={handleToggle}
+        />
+        <p className={`text-xs ${theme.subtext} px-1`}>
+          {enabled
+            ? "A passkey for this device is registered with your account."
+            : "Biometric authentication is turned off. You'll use your password and PIN instead."}
+        </p>
+
+        {enabled && (
+          <button
+            onClick={() => handleToggle(true)}
+            disabled={registering}
+            className={`w-full font-semibold rounded-2xl py-3.5 flex items-center justify-center gap-2 ${theme.card} ${theme.text}`}
+          >
+            <Fingerprint size={18} className="text-blue-400" />
+            {registering ? "Waiting for fingerprint/Face ID..." : "Re-register Fingerprint / Face ID"}
+          </button>
+        )}
+
+        {regResult === "success" && (
+          <p className="text-xs text-blue-500 px-1">✓ Registered with your account successfully.</p>
+        )}
+        {regResult === "declined" && (
+          <p className="text-xs text-red-400 px-1">Registration was cancelled or failed. Try again.</p>
+        )}
+        {regResult === "unsupported" && (
+          <p className={`text-xs ${theme.subtext} px-1`}>
+            This device/browser doesn't support platform biometrics (Face ID/Fingerprint/Windows Hello), so Pancity will fall back to PIN.
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
+function NotificationsPanel({ theme, pushEnabled, setPushEnabled, onClose }) {
+  const [prefs, setPrefs] = useState({
+    transactions: true,
+    promotions: false,
+    security: true,
+    updates: true,
+  });
+  const [loaded, setLoaded] = useState(false);
+  const [permissionState, setPermissionState] = useState(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
+  );
+
+  // Loads whatever the person last saved, from the backend — not just
+  // whatever this panel happened to default to on this device.
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiFetch("/notifications/preferences");
+        if (!cancelled && data) {
+          setPrefs((p) => ({ ...p, ...data }));
+        }
+      } catch (err) {
+        console.error("Notification preferences load failed:", err.message);
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Saves immediately on each toggle; reverts locally if the backend call
+  // fails so the switch never shows a state that wasn't actually saved.
+  const setPref = async (key, val) => {
+    setPrefs((p) => ({ ...p, [key]: val }));
+    try {
+      await apiFetch("/notifications/preferences", {
+        method: "PATCH",
+        body: { [key]: val },
+      });
+    } catch (err) {
+      setPrefs((p) => ({ ...p, [key]: !val }));
+      console.error("Notification preference save failed:", err.message);
+    }
+  };
+
+  // Also checks whether this device already has a real push subscription
+  // (e.g. from a previous visit) so the toggle reflects reality, not just
+  // whatever this component happened to start at.
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.getRegistration();
+          const subscription = registration && (await registration.pushManager.getSubscription());
+          if (!cancelled) setPushEnabled(!!subscription);
+        }
+      } catch (err) {
+        // Not fatal — worst case the toggle just starts off.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState("");
+
+  const handleTogglePush = async (turnOn) => {
+    setPushError("");
+    if (!turnOn) {
+      setPushBusy(true);
+      await unregisterPushSubscription();
+      setPushBusy(false);
+      setPushEnabled(false);
+      return;
+    }
+    setPushBusy(true);
+    const result = await registerPushSubscription();
+    setPushBusy(false);
+    setPermissionState(
+      typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
+    );
+    if (result.ok) {
+      setPushEnabled(true);
+    } else {
+      setPushEnabled(false);
+      if (result.reason && result.reason !== "unsupported" && result.reason !== "denied") {
+        setPushError(result.reason);
+      }
+    }
+  };
+
+  return (
+    <>
+      <PanelHeader theme={theme} title="Notifications" onClose={onClose} />
+      <div className="px-5 flex flex-col gap-3">
+        <ToggleRow
+          theme={theme}
+          label="Push Notifications"
+          sublabel={
+            pushBusy
+              ? "Setting up..."
+              : permissionState === "unsupported"
+              ? "Not supported on this browser/device"
+              : permissionState === "denied"
+              ? "Blocked — enable notifications for this site in your browser settings"
+              : "Get real device notifications from Pancity, even when it's closed"
+          }
+          value={pushEnabled}
+          onChange={handleTogglePush}
+          disabled={pushBusy}
+        />
+        {pushError && <p className="text-xs text-red-400 px-1">{pushError}</p>}
+        {pushEnabled && (
+          <button
+            onClick={() => {
+              apiFetch("/notifications/test", { method: "POST" }).catch((err) =>
+                setPushError(err.message || "Could not send test notification.")
+              );
+            }}
+            className={`w-full font-semibold rounded-2xl py-3 flex items-center justify-center gap-2 ${theme.card} ${theme.text}`}
+          >
+            <Bell size={16} className="text-blue-400" />
+            Send Test Notification
+          </button>
+        )}
+        <ToggleRow
+          theme={theme}
+          label="Transaction Alerts"
+          sublabel="Get notified for every transaction"
+          value={prefs.transactions}
+          onChange={(v) => setPref("transactions", v)}
+        />
+        <ToggleRow
+          theme={theme}
+          label="Promotions & Offers"
+          sublabel="Discounts, cashback, and offers"
+          value={prefs.promotions}
+          onChange={(v) => setPref("promotions", v)}
+        />
+        <ToggleRow
+          theme={theme}
+          label="Security Alerts"
+          sublabel="Login attempts and account changes"
+          value={prefs.security}
+          onChange={(v) => setPref("security", v)}
+        />
+        <ToggleRow
+          theme={theme}
+          label="App Updates"
+          sublabel="New features and improvements"
+          value={prefs.updates}
+          onChange={(v) => setPref("updates", v)}
+        />
+      </div>
+    </>
+  );
+}
+
+function SupportPanel({ theme, onClose }) {
+  const [message, setMessage] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const handleSend = () => {
+    if (!message.trim()) return;
+    setSent(true);
+    setTimeout(() => {
+      setSent(false);
+      setMessage("");
+      onClose();
+    }, 1000);
+  };
+
+  return (
+    <>
+      <PanelHeader theme={theme} title="Contact Support" onClose={onClose} />
+      <div className="px-5 flex flex-col gap-4">
+        <div className={`${theme.card} rounded-2xl p-4 flex items-center gap-3`}>
+          <Mail size={18} className="text-blue-400" />
+          <div>
+            <p className="text-sm">Email Us</p>
+            <p className={`text-xs ${theme.subtext}`}>support@pancity.com</p>
+          </div>
+        </div>
+        <div className={`${theme.card} rounded-2xl p-4 flex items-center gap-3`}>
+          <Phone size={18} className="text-blue-400" />
+          <div>
+            <p className="text-sm">Call Us</p>
+            <p className={`text-xs ${theme.subtext}`}>+234 800 000 0000</p>
+          </div>
+        </div>
+
+        <p className={`text-xs ${theme.subtext} px-1 mt-2`}>Or send us a message</p>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Describe your issue..."
+          rows={4}
+          className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none resize-none ${theme.input}`}
+        />
+
+        <button
+          onClick={handleSend}
+          className="w-full font-semibold rounded-2xl py-4 text-white bg-blue-500 flex items-center justify-center gap-2"
+        >
+          {sent ? (
+            <>
+              <CheckCircle2 size={18} /> Message Sent
+            </>
+          ) : (
+            "Send Message"
+          )}
+        </button>
+      </div>
+    </>
+  );
+}
+
+
+function getReceiptFields(form) {
+  const fields = [];
+  if (form.network) fields.push({ label: "Network", value: form.network });
+  if (form.phone) fields.push({ label: "Phone Number", value: form.phone });
+  if (form.planType) fields.push({ label: "Plan Type", value: form.planType });
+  if (form.plan) fields.push({ label: "Plan", value: form.plan });
+  if (form.cableProvider) fields.push({ label: "Cable Provider", value: form.cableProvider });
+  if (form.smartcard) fields.push({ label: "Smartcard Number", value: form.smartcard });
+  if (form.package) fields.push({ label: "Package", value: form.package });
+  if (form.disco) fields.push({ label: "Disco", value: form.disco });
+  if (form.meter) fields.push({ label: "Meter Number", value: form.meter });
+  if (form.examType) fields.push({ label: "Exam Type", value: form.examType });
+  if (form.quantity) fields.push({ label: "Quantity", value: form.quantity });
+  return fields;
+}
+
+function ReceiptView({ theme, activeService, form, amount, reference, balanceBefore, balanceAfter, status = "Completed", onClose }) {
+  const [tab, setTab] = useState("agent"); // agent | customer
+  const [shared, setShared] = useState(false);
+  const fields = getReceiptFields(form);
+  const now = new Date();
+  const dateStr = now.toLocaleString();
+  const hasBalanceInfo = typeof balanceBefore === "number" && typeof balanceAfter === "number";
+  const statusStyle = STATUS_STYLES[status] || STATUS_STYLES.Completed;
+
+  const buildReceiptText = () => {
+    const lines = [
+      `PANCITY ${tab === "agent" ? "USER" : "CUSTOMER"} RECEIPT`,
+      `Service: ${activeService}`,
+      ...fields.map((f) => `${f.label}: ${f.value}`),
+    ];
+    if (tab === "agent") {
+      lines.push(`Amount: ₦${amount.toLocaleString()}`);
+      if (hasBalanceInfo) {
+        lines.push(`Balance Before: ₦${balanceBefore.toLocaleString()}`);
+        lines.push(`Balance After: ₦${balanceAfter.toLocaleString()}`);
+      }
+    }
+    lines.push(`Reference: ${reference}`);
+    lines.push(`Date: ${dateStr}`);
+    lines.push(`Status: ${status}`);
+    return lines.join("\n");
+  };
+
+  const handleShare = async () => {
+    const text = buildReceiptText();
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch (e) {
+        // fall through to clipboard
+      }
+    }
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {}
+    }
+    setShared(true);
+    setTimeout(() => setShared(false), 1500);
+  };
+
+  return (
+    <div className="flex flex-col items-center text-center py-2">
+      {status === "Completed" ? (
+        <CheckCircle2 size={48} className="text-blue-400 mb-3" />
+      ) : status === "Failed" ? (
+        <X size={48} className="text-red-400 mb-3" />
+      ) : (
+        <Clock size={48} className="text-amber-400 mb-3" />
+      )}
+      <h2 className={`text-lg font-bold ${theme.text} mb-1`}>
+        {status === "Completed" ? "Successful!" : status === "Failed" ? "Request Failed" : "Request Submitted"}
+      </h2>
+      <p className={`${theme.subtext} text-sm mb-4`}>
+        {status === "Completed"
+          ? `Your ${activeService} request has been processed.`
+          : status === "Failed"
+          ? `Your ${activeService} request could not be completed.`
+          : `Your ${activeService} request is pending review.`}
+      </p>
+
+      {/* Receipt Type Tabs */}
+      <div className={`flex w-full ${theme.pillBg} rounded-full p-1 mb-4`}>
+        <button
+          onClick={() => setTab("agent")}
+          className={`flex-1 text-xs font-semibold rounded-full py-2 transition-colors ${
+            tab === "agent" ? "bg-blue-500 text-black" : theme.subtext
+          }`}
+        >
+          User Receipt
+        </button>
+        <button
+          onClick={() => setTab("customer")}
+          className={`flex-1 text-xs font-semibold rounded-full py-2 transition-colors ${
+            tab === "customer" ? "bg-blue-500 text-black" : theme.subtext
+          }`}
+        >
+          Customer Receipt
+        </button>
+      </div>
+
+      {/* Receipt Card */}
+      <div className={`w-full rounded-2xl ${theme.card} p-4 text-left mb-4`}>
+        <div className={`flex items-center justify-between pb-3 mb-3 border-b ${theme.border}`}>
+          <span className={`text-xs ${theme.subtext}`}>Service</span>
+          <span className={`text-sm font-semibold ${theme.text}`}>{activeService}</span>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {fields.map((f, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <span className={`text-xs ${theme.subtext}`}>{f.label}</span>
+              <span className={`text-sm ${theme.text}`}>{f.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {tab === "agent" && (
+          <>
+            <div className={`flex items-center justify-between mt-3 pt-3 border-t ${theme.border}`}>
+              <span className={`text-sm font-semibold ${theme.text}`}>
+                {activeService === "Airtime 2 Cash" ? "Payout Amount" : "Amount"}
+              </span>
+              <span className="text-sm font-bold text-blue-500">₦{amount.toLocaleString()}</span>
+            </div>
+
+            {hasBalanceInfo && (
+              <div className={`flex flex-col gap-1.5 mt-3 pt-3 border-t ${theme.border}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs ${theme.subtext}`}>Balance Before</span>
+                  <span className={`text-xs ${theme.text}`}>₦{balanceBefore.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs ${theme.subtext}`}>Balance After</span>
+                  <span className="text-xs font-semibold text-blue-500">
+                    ₦{balanceAfter.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className={`flex items-center justify-between mt-3 pt-3 border-t ${theme.border}`}>
+          <span className={`text-xs ${theme.subtext}`}>Reference</span>
+          <span className={`text-xs ${theme.text}`}>{reference}</span>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <span className={`text-xs ${theme.subtext}`}>Date</span>
+          <span className={`text-xs ${theme.text}`}>{dateStr}</span>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <span className={`text-xs ${theme.subtext}`}>Status</span>
+          <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${statusStyle.bg} ${statusStyle.text}`}>
+            {status}
+          </span>
+        </div>
+      </div>
+
+      <button
+        onClick={handleShare}
+        className={`w-full border ${theme.border} font-semibold rounded-2xl py-3.5 mb-3 flex items-center justify-center gap-2 ${theme.text}`}
+      >
+        <Send size={16} className="text-blue-500" />
+        {shared ? "Copied to clipboard!" : `Share ${tab === "agent" ? "User" : "Customer"} Receipt`}
+      </button>
+
+      <button
+        onClick={onClose}
+        className="w-full bg-blue-500 text-black font-semibold rounded-2xl py-3.5"
+      >
+        Done
+      </button>
+    </div>
+  );
+}
+
+function ServiceField({ field, value, onChange, theme, formState, accountTier, dataPlans }) {
+  const labels = {
+    network: "Network",
+    plan: "Data Plan",
+    phone: "Phone Number",
+    amount: "Amount (₦)",
+    cableProvider: "Cable Provider",
+    smartcard: "Smartcard Number",
+    package: "Package",
+    disco: "Distribution Company",
+    meter: "Meter Number",
+    examType: "Exam Type",
+    quantity: "Quantity",
+    planType: "Plan Type",
+    bankName: "Bank Name",
+    accountNumber: "Bank Account Number",
+  };
+
+  const selectOptions = {
+    disco: DISCOS,
+    bankName: NIGERIAN_BANKS,
+  };
+
+  const chipOptions = {
+    planType: PLAN_TYPES,
+  };
+
+  if (field === "plan") {
+    const plans = (dataPlans || []).filter(
+      (p) => p.enabled && p.type === formState?.planType
+    );
+
+    return (
+      <div>
+        <label className={`text-xs font-semibold tracking-wider mb-3 block ${theme.subtext}`}>
+          AVAILABLE BUNDLES
+        </label>
+        <div className="flex flex-col gap-3">
+          {plans.length === 0 && (
+            <p className={`text-xs ${theme.subtext}`}>No bundles available for this plan type right now.</p>
+          )}
+          {plans.map((p) => {
+            const selected = value === p.label;
+            const tierPrice = getPlanPrice(p.price, accountTier);
+            return (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => onChange(p.label)}
+                className={`w-full rounded-2xl border p-4 flex items-center justify-between transition-colors ${
+                  selected ? "border-blue-500" : `${theme.border} border`
+                } ${theme.card}`}
+              >
+                <div className="text-left">
+                  <p className={`text-base font-extrabold ${theme.text}`}>{p.label}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${theme.pillBg} ${theme.subtext}`}>
+                      {p.duration}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-blue-500/15 text-blue-500">
+                      {p.type}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className={`rounded-2xl px-4 py-2 font-bold text-sm text-white ${
+                    selected ? "bg-blue-500" : "bg-zinc-900"
+                  }`}
+                >
+                  ₦{tierPrice.toLocaleString()}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (chipOptions[field]) {
+    const options = chipOptions[field].filter((opt) =>
+      typeof opt === "string" ? true : opt.enabled
+    );
+    return (
+      <div>
+        <label className={`text-xs ${theme.subtext} mb-2 block`}>{labels[field]}</label>
+        <div className="flex flex-wrap gap-2">
+          {options.map((opt) => {
+            const optLabel = typeof opt === "string" ? opt : opt.label;
+            const selected = value === optLabel;
+            return (
+              <button
+                key={optLabel}
+                type="button"
+                onClick={() => onChange(optLabel)}
+                className={`px-3.5 py-2 rounded-2xl text-xs font-semibold border transition-colors ${
+                  selected
+                    ? "bg-blue-500 border-blue-500 text-black"
+                    : `${theme.input} border`
+                }`}
+              >
+                {optLabel}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (field === "network") {
+    return (
+      <div>
+        <label className={`text-xs font-semibold tracking-wider mb-3 block ${theme.subtext}`}>
+          SELECT NETWORK PROVIDER
+        </label>
+        <div className="grid grid-cols-4 gap-3">
+          {NETWORKS.map((net) => {
+            const style = NETWORK_STYLES[net];
+            const selected = value === net;
+            return (
+              <button
+                key={net}
+                type="button"
+                onClick={() => onChange(net)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="relative">
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center"
+                    style={{
+                      backgroundColor: style.bg,
+                      boxShadow: selected ? `0 0 0 3px ${theme.sheet === "bg-white" ? "#fff" : "#09090b"}, 0 0 0 5px ${style.ring}` : "none",
+                    }}
+                  >
+                    <span
+                      className="text-[10px] font-extrabold leading-none text-center px-1"
+                      style={{ color: net === "MTN" ? "#000" : net === "9mobile" ? style.text : "#fff" }}
+                    >
+                      {style.label}
+                    </span>
+                  </div>
+                  {selected && (
+                    <div
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center"
+                      style={{ border: `2px solid ${theme.sheet === "bg-white" ? "#fff" : "#09090b"}` }}
+                    >
+                      <Check size={11} className="text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                </div>
+                <span className={`text-xs font-medium ${selected ? "text-blue-500" : theme.text}`}>
+                  {net}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (field === "cableProvider" || field === "examType") {
+    const options = field === "cableProvider" ? CABLE_PROVIDERS : EXAM_TYPES;
+    const stylesMap = field === "cableProvider" ? CABLE_STYLES : EXAM_STYLES;
+    return (
+      <div>
+        <label className={`text-xs font-semibold tracking-wider mb-3 block ${theme.subtext}`}>
+          {field === "cableProvider" ? "SELECT CABLE PROVIDER" : "SELECT EXAM TYPE"}
+        </label>
+        <div className="grid grid-cols-4 gap-3">
+          {options.map((opt) => {
+            const style = stylesMap[opt];
+            const selected = value === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => onChange(opt)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="relative">
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center"
+                    style={{
+                      backgroundColor: style.bg,
+                      boxShadow: selected ? `0 0 0 3px ${theme.sheet === "bg-white" ? "#fff" : "#09090b"}, 0 0 0 5px ${style.bg}` : "none",
+                    }}
+                  >
+                    <span
+                      className="text-[10px] font-extrabold leading-none text-center px-1"
+                      style={{ color: style.text }}
+                    >
+                      {style.label}
+                    </span>
+                  </div>
+                  {selected && (
+                    <div
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center"
+                      style={{ border: `2px solid ${theme.sheet === "bg-white" ? "#fff" : "#09090b"}` }}
+                    >
+                      <Check size={11} className="text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                </div>
+                <span className={`text-xs font-medium ${selected ? "text-blue-500" : theme.text}`}>
+                  {opt}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (selectOptions[field]) {
+    return (
+      <div>
+        <label className={`text-xs ${theme.subtext} mb-1.5 block`}>{labels[field]}</label>
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none ${theme.input}`}
+        >
+          <option value="">Select {labels[field]}</option>
+          {selectOptions[field].map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className={`text-xs ${theme.subtext} mb-1.5 block`}>{labels[field]}</label>
+      <input
+        type={field === "phone" || field === "amount" || field === "smartcard" || field === "meter" || field === "quantity" || field === "accountNumber" ? "number" : "text"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={`Enter ${labels[field].toLowerCase()}`}
+        className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none ${theme.input}`}
+      />
+    </div>
+  );
+}
+
+function AuthScreen({
+  theme,
+  darkMode,
+  authMode,
+  setAuthMode,
+  authForm,
+  setAuthForm,
+  authenticating,
+  authSubmitting,
+  authError,
+  onThumbprint,
+  onSubmit,
+}) {
+  const set = (field, value) => setAuthForm((f) => ({ ...f, [field]: value }));
+  const [pinError, setPinError] = useState(false);
+  const [signupStep, setSignupStep] = useState("details"); // details | setpin | confirmpin
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [legalModal, setLegalModal] = useState(null); // null | "terms" | "privacy"
+  const [forgotOpen, setForgotOpen] = useState(false);
+
+  const handleSetPin = (digits) => {
+    set("newPin", digits);
+    if (digits.length === 4) {
+      setTimeout(() => setSignupStep("confirmpin"), 250);
+    }
+  };
+
+  const handleConfirmPin = (digits) => {
+    set("confirmPin", digits);
+    if (digits.length === 4) {
+      if (digits === authForm.newPin) {
+        setPinError(false);
+        setTimeout(() => onSubmit(), 250);
+      } else {
+        setPinError(true);
+        setTimeout(() => {
+          set("confirmPin", "");
+          setPinError(false);
+        }, 700);
+      }
+    }
+  };
+
+  // Pancity palette for the auth flow — now follows the app's dark/light mode
+  const a = darkMode
+    ? {
+        bg: "bg-black",
+        text: "text-white",
+        subtext: "text-slate-400",
+        inputBg: "bg-zinc-900",
+        inputText: "text-white placeholder-zinc-600",
+        card: "bg-zinc-900",
+        border: "border-zinc-800",
+        accent: "bg-blue-500",
+        accentText: "text-blue-400",
+      }
+    : {
+        bg: "bg-white",
+        text: "text-slate-900",
+        subtext: "text-slate-500",
+        inputBg: "bg-zinc-100",
+        inputText: "text-zinc-800 placeholder-zinc-400",
+        card: "bg-white",
+        border: "border-zinc-200",
+        accent: "bg-blue-500",
+        accentText: "text-blue-500",
+      };
+
+  if (signupStep !== "details") {
+    // Set PIN / Confirm PIN steps keep the app's PIN keypad UI
+    return (
+      <div className={`min-h-screen ${a.bg} ${a.text} flex justify-center`}>
+        <div className="w-full max-w-sm min-h-screen flex flex-col px-6">
+          <div className="flex flex-col items-center pt-12 pb-6">
+            <img
+              src={pancityLogo}
+              alt="Pancity"
+              className="w-16 h-16 mb-3"
+              style={{ objectFit: "contain" }}
+            />
+            <h1 className="text-xl font-bold">Pancity</h1>
+          </div>
+          <p className="text-sm font-semibold text-center mt-4 mb-1">
+            {signupStep === "setpin" ? "Set Transaction PIN" : "Confirm Transaction PIN"}
+          </p>
+          <p className={`text-xs ${a.subtext} text-center mb-3`}>
+            {signupStep === "setpin"
+              ? "Create a 4-digit PIN to secure your account"
+              : pinError
+              ? "PINs don't match, try again"
+              : "Re-enter your 4-digit PIN"}
+          </p>
+          <PinKeypad
+            theme={{ pillBg: a.inputBg, subtext: a.subtext, border: a.border }}
+            value={signupStep === "setpin" ? authForm.newPin || "" : authForm.confirmPin || ""}
+            onChange={signupStep === "setpin" ? handleSetPin : handleConfirmPin}
+            error={signupStep === "confirmpin" && pinError}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+    <div className={`min-h-screen ${a.bg} ${a.text} flex justify-center`}>
+      <div className="w-full max-w-sm min-h-screen flex flex-col px-8 pb-8">
+        {/* Logo */}
+        <div className="flex flex-col items-center pt-14 pb-8">
+          <img
+            src={pancityLogo}
+            alt="Pancity"
+            className="w-20 h-20 mb-5"
+            style={{ objectFit: "contain" }}
+          />
+          <h1 className="text-3xl font-extrabold text-center">
+            {authMode === "signup" ? "Get Started" : "Welcome Back"}
+          </h1>
+          <p className={`${a.subtext} text-sm mt-2 text-center`}>
+            {authMode === "signup"
+              ? "Fast, secure, and affordable digital services."
+              : "Sign in to your Pancity account and stay connected."}
+          </p>
+        </div>
+
+        {authMode === "signup" ? (
+          <>
+            <div className="flex flex-col gap-4">
+              <SnapInput
+                icon={User}
+                a={a}
+                placeholder="Username"
+                value={authForm.username || ""}
+                onChange={(v) => set("username", v)}
+              />
+              <SnapInput
+                icon={Mail}
+                a={a}
+                placeholder="Email Address"
+                value={authForm.email || ""}
+                onChange={(v) => set("email", v)}
+              />
+              <SnapInput
+                icon={Phone}
+                a={a}
+                placeholder="Phone Number"
+                type="number"
+                value={authForm.phone || ""}
+                onChange={(v) => set("phone", v)}
+              />
+              <SnapInput
+                icon={Lock}
+                a={a}
+                placeholder="Password"
+                type={showPassword ? "text" : "password"}
+                value={authForm.password || ""}
+                onChange={(v) => set("password", v)}
+                endIcon={showPassword ? EyeOff : Eye}
+                onEndIconClick={() => setShowPassword((s) => !s)}
+              />
+              <SnapInput
+                icon={Fingerprint}
+                a={a}
+                placeholder="Transaction PIN (4 digits)"
+                type="password"
+                value={authForm.pin || ""}
+                onChange={(v) => {
+                  if (v.length <= 4 && /^\d*$/.test(v)) set("pin", v);
+                }}
+                maxLength="4"
+              />
+              <SnapInput
+                icon={Gift}
+                a={a}
+                placeholder="Referral Code (Optional)"
+                value={authForm.referral || ""}
+                onChange={(v) => set("referral", v)}
+              />
+            </div>
+
+            {authError && (
+              <p className="text-sm text-rose-500 text-center mt-4">{authError}</p>
+            )}
+
+            <button
+              onClick={() => {
+                if (!authForm.pin || authForm.pin.length !== 4) {
+                  alert("PIN must be 4 digits");
+                  return;
+                }
+                onSubmit();
+              }}
+              disabled={!agreed || authSubmitting}
+              className={`w-full mt-6 font-semibold rounded-2xl py-4 text-white transition-opacity ${a.accent} ${
+                agreed && !authSubmitting ? "opacity-100" : "opacity-40"
+              }`}
+            >
+              {authSubmitting ? "Creating account..." : "Create My Account"}
+            </button>
+
+            <div className="flex items-center gap-3 mt-5">
+              <button
+                onClick={() => setAgreed((v) => !v)}
+                className="shrink-0"
+              >
+                <div
+                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${
+                    agreed
+                      ? "bg-blue-500 border-blue-500"
+                      : darkMode
+                      ? "border-zinc-700"
+                      : "border-zinc-300"
+                  }`}
+                >
+                  {agreed && <Check size={12} className="text-white" strokeWidth={3} />}
+                </div>
+              </button>
+              <span className={`text-xs ${a.subtext} text-left`}>
+                I agree to the{" "}
+                <button
+                  type="button"
+                  onClick={() => setLegalModal("terms")}
+                  className={`${a.accentText} underline`}
+                >
+                  Terms of Service
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  onClick={() => setLegalModal("privacy")}
+                  className={`${a.accentText} underline`}
+                >
+                  Privacy Policy
+                </button>
+              </span>
+            </div>
+
+            <p className={`text-sm ${a.subtext} text-center mt-8`}>
+              Already have an account?{" "}
+              <button
+                onClick={() => setAuthMode("login")}
+                className={`${a.accentText} font-semibold`}
+              >
+                Sign In
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col gap-4">
+              <SnapInput
+                icon={Mail}
+                a={a}
+                placeholder="Email Address"
+                value={authForm.email || ""}
+                onChange={(v) => set("email", v)}
+              />
+              <SnapInput
+                icon={Lock}
+                a={a}
+                placeholder="Password"
+                type={showPassword ? "text" : "password"}
+                value={authForm.password || ""}
+                onChange={(v) => set("password", v)}
+                endIcon={showPassword ? EyeOff : Eye}
+                onEndIconClick={() => setShowPassword((s) => !s)}
+              />
+            </div>
+
+            <button
+              onClick={() => setForgotOpen(true)}
+              className={`text-sm ${a.accentText} font-semibold text-right mt-3 self-end`}
+            >
+              Forgot Password?
+            </button>
+
+            {authError && (
+              <p className="text-sm text-rose-500 text-center mt-3">{authError}</p>
+            )}
+
+            <button
+              onClick={onSubmit}
+              disabled={authSubmitting}
+              className={`w-full mt-6 font-semibold rounded-2xl py-4 text-white ${a.accent} ${
+                authSubmitting ? "opacity-40" : "opacity-100"
+              }`}
+            >
+              {authSubmitting ? "Signing in..." : "Sign In"}
+            </button>
+
+            <div className="flex flex-col items-center pt-8">
+              <button
+                onClick={onThumbprint}
+                disabled={authenticating}
+                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  authenticating ? "border-blue-500 bg-blue-500/10" : "border-blue-500"
+                }`}
+              >
+                <Fingerprint
+                  size={26}
+                  className={`${a.accentText} ${authenticating ? "animate-pulse" : ""}`}
+                />
+              </button>
+              <p className={`text-xs ${a.subtext} mt-2`}>
+                {authenticating ? "Authenticating..." : "Login with Thumbprint"}
+              </p>
+            </div>
+
+            <p className={`text-sm ${a.subtext} text-center mt-8`}>
+              Don't have an account?{" "}
+              <button
+                onClick={() => setAuthMode("signup")}
+                className={`${a.accentText} font-semibold`}
+              >
+                Sign Up Here
+              </button>
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+
+    {legalModal && (
+      <LegalModal type={legalModal} a={a} onClose={() => setLegalModal(null)} />
+    )}
+
+    {forgotOpen && (
+      <ForgotPasswordModal a={a} onClose={() => setForgotOpen(false)} />
+    )}
+    </>
+  );
+}
+
+const FUND_WALLET_BANKS = [
+  { key: "paga", name: "Paga", color: "#F97316" },
+  { key: "providus", name: "Providus Bank", color: "#7C3AED" },
+  { key: "wema", name: "Wema Bank", color: "#7C2D12" },
+  { key: "moniepoint", name: "Moniepoint MFB", color: "#0EA5E9" },
+  { key: "9psb", name: "9 Payment Service Bank", color: "#DC2626" },
+];
+
+function FundWalletModal({ theme, username, enabledBanks, initialAccounts, onClose }) {
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [generatingKey, setGeneratingKey] = useState(null);
+  const [genError, setGenError] = useState("");
+  const [accounts, setAccounts] = useState(initialAccounts || {});
+
+  const banks = FUND_WALLET_BANKS.filter((b) => (enabledBanks || []).includes(b.key));
+
+  // Real dedicated account number, issued by the payment gateway itself
+  // (Paga/Providus/Wema/etc.) through the backend — never generated on the
+  // device, since a made-up number here would be real money sent nowhere.
+  const handleGenerate = async (bankKey) => {
+    if (accounts[bankKey] || generatingKey) return;
+    setGenError("");
+    setGeneratingKey(bankKey);
+    try {
+      const data = await apiFetch("/wallet/virtual-accounts/generate", {
+        method: "POST",
+        body: { bank: bankKey },
+      });
+      setAccounts((prev) => ({ ...prev, [bankKey]: data.accountNumber }));
+    } catch (err) {
+      setGenError(err.message || "Could not generate account number. Please try again.");
+    } finally {
+      setGeneratingKey(null);
+    }
+  };
+
+  const handleCopy = (bankKey, accountNumber) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(accountNumber).catch(() => {});
+    }
+    setCopiedKey(bankKey);
+    setTimeout(() => setCopiedKey(null), 1500);
+  };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex justify-center ${theme.bg}`}>
+      <div className={`relative w-full max-w-sm min-h-screen ${theme.sheet} p-6 pb-8 overflow-y-auto animate-[slideUp_0.25s_ease-out]`}>
+        <style>{`@keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+        <div className="h-3" />
+        <div className="flex items-center justify-between mb-6">
+          <h2 className={`text-lg font-bold ${theme.text}`}>Fund Wallet</h2>
+          <button onClick={onClose} className={`w-9 h-9 rounded-full ${theme.pillBg} flex items-center justify-center`}>
+            <X size={16} className={theme.label} />
+          </button>
+        </div>
+
+        {banks.length === 0 ? (
+          <div className={`${theme.card} rounded-2xl p-6 flex flex-col items-center text-center gap-2`}>
+            <Wallet size={28} className={theme.subtext} />
+            <p className="text-sm font-semibold">No payment gateway available yet</p>
+            <p className={`text-xs ${theme.subtext}`}>
+              The admin hasn't added a bank for automated funding yet. Please check back soon or contact support.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Automated Funding */}
+            <p className={`${theme.subtext} text-xs font-semibold tracking-wider mb-2`}>
+              AUTOMATED FUNDING
+            </p>
+            <p className={`text-xs ${theme.subtext} mb-3`}>
+              Generate a dedicated account number from any bank below. Transfer any amount to it and your wallet will be credited automatically.
+            </p>
+            {genError && (
+              <p className="text-xs text-red-500 mb-3">{genError}</p>
+            )}
+
+            <div className="flex flex-col gap-3">
+              {banks.map((bank) => {
+                const accountNumber = accounts[bank.key];
+                const isGenerating = generatingKey === bank.key;
+
+                return (
+                  <div key={bank.key} className={`${theme.card} rounded-2xl p-4`}>
+                    <div className="flex items-center gap-3 mb-1">
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                        style={{ backgroundColor: bank.color }}
+                      >
+                        {bank.name.charAt(0)}
+                      </div>
+                      <p className="text-sm font-semibold flex-1">{bank.name}</p>
+                      {!accountNumber && (
+                        <button
+                          onClick={() => handleGenerate(bank.key)}
+                          disabled={isGenerating}
+                          className="border border-blue-500 text-blue-400 text-xs font-medium rounded-full px-4 py-2 disabled:opacity-60"
+                        >
+                          {isGenerating ? "Generating..." : "Generate"}
+                        </button>
+                      )}
+                    </div>
+
+                    {accountNumber && (
+                      <>
+                        <div className={`rounded-2xl ${theme.pillBg} px-4 py-3 flex items-center justify-between mt-3 mb-3`}>
+                          <div>
+                            <p className={`text-xs ${theme.subtext} mb-0.5`}>Account Number</p>
+                            <p className="font-bold tracking-wide">{accountNumber}</p>
+                          </div>
+                          <button
+                            onClick={() => handleCopy(bank.key, accountNumber)}
+                            className="border border-blue-500 text-blue-400 text-xs font-medium rounded-full px-4 py-2"
+                          >
+                            {copiedKey === bank.key ? "Copied!" : "Copy"}
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between px-1">
+                          <div>
+                            <p className={`text-xs ${theme.subtext} mb-0.5`}>Bank Name</p>
+                            <p className="text-sm font-semibold">{bank.name}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-xs ${theme.subtext} mb-0.5`}>Account Name</p>
+                            <p className="text-sm font-semibold">{username}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ForgotPasswordModal({ a, onClose }) {
+  const [step, setStep] = useState("email"); // email | code | newpass | done
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [showPass, setShowPass] = useState(false);
+
+  const handleSendCode = () => {
+    if (!email.trim()) {
+      setError("Please enter your registered email address.");
+      return;
+    }
+    setError("");
+    setStep("code");
+  };
+
+  const handleVerifyCode = () => {
+    if (code.length !== 6) {
+      setError("Enter the 6-digit code sent to your email.");
+      return;
+    }
+    setError("");
+    setStep("newpass");
+  };
+
+  const handleResetPassword = () => {
+    if (!newPassword || newPassword.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setError("");
+    setStep("done");
+  };
+
+  const titles = {
+    email: "Forgot Password",
+    code: "Verify Code",
+    newpass: "Set New Password",
+    done: "Password Reset",
+  };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex justify-center ${a.bg}`}>
+      <div className={`relative w-full max-w-sm min-h-screen ${a.bg} p-6 pb-8 overflow-y-auto`}>
+        <div className="h-3" />
+        <div className="flex items-center justify-between mb-5">
+          <h2 className={`text-base font-bold ${a.text}`}>{titles[step]}</h2>
+          <button onClick={onClose} className={`w-9 h-9 rounded-full ${a.inputBg} flex items-center justify-center`}>
+            <X size={16} className={a.subtext} />
+          </button>
+        </div>
+
+        {step === "email" && (
+          <div className="flex flex-col gap-4">
+            <p className={`text-sm ${a.subtext}`}>
+              Enter the email address linked to your account. We'll send you a code to reset your password.
+            </p>
+            <SnapInput icon={Mail} a={a} placeholder="Email Address" value={email} onChange={setEmail} />
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <button
+              onClick={handleSendCode}
+              className={`w-full mt-2 font-semibold rounded-2xl py-4 text-white ${a.accent}`}
+            >
+              Send Reset Code
+            </button>
+          </div>
+        )}
+
+        {step === "code" && (
+          <div className="flex flex-col gap-4">
+            <p className={`text-sm ${a.subtext}`}>
+              Enter the 6-digit code sent to <span className="font-semibold">{email}</span>.
+            </p>
+            <SnapInput
+              icon={Lock}
+              a={a}
+              placeholder="6-digit code"
+              value={code}
+              onChange={(v) => v.length <= 6 && /^\d*$/.test(v) && setCode(v)}
+            />
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <button
+              onClick={handleVerifyCode}
+              className={`w-full mt-2 font-semibold rounded-2xl py-4 text-white ${a.accent}`}
+            >
+              Verify Code
+            </button>
+            <button onClick={handleSendCode} className={`text-xs ${a.accentText} font-semibold`}>
+              Resend Code
+            </button>
+          </div>
+        )}
+
+        {step === "newpass" && (
+          <div className="flex flex-col gap-4">
+            <SnapInput
+              icon={Lock}
+              a={a}
+              placeholder="New Password"
+              type={showPass ? "text" : "password"}
+              value={newPassword}
+              onChange={setNewPassword}
+              endIcon={showPass ? EyeOff : Eye}
+              onEndIconClick={() => setShowPass((s) => !s)}
+            />
+            <SnapInput
+              icon={Lock}
+              a={a}
+              placeholder="Confirm New Password"
+              type={showPass ? "text" : "password"}
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+            />
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <button
+              onClick={handleResetPassword}
+              className={`w-full mt-2 font-semibold rounded-2xl py-4 text-white ${a.accent}`}
+            >
+              Reset Password
+            </button>
+          </div>
+        )}
+
+        {step === "done" && (
+          <div className="flex flex-col items-center text-center py-4">
+            <CheckCircle2 size={48} className={`${a.accentText} mb-3`} />
+            <p className={`text-sm font-semibold ${a.text} mb-1`}>Password reset successful</p>
+            <p className={`text-xs ${a.subtext} mb-6`}>You can now sign in with your new password.</p>
+            <button
+              onClick={onClose}
+              className={`w-full font-semibold rounded-2xl py-4 text-white ${a.accent}`}
+            >
+              Back to Sign In
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LegalModal({ type, a, onClose }) {
+  const title = type === "terms" ? "Pancity Terms of Service" : "Pancity Privacy Policy";
+
+  const termsPoints = [
+    "Welcome to Pancity. By creating an account or using our services, you agree to these Terms.",
+    "You must provide accurate and complete information during registration.",
+    "You are responsible for keeping your account and password secure.",
+    "All transactions are final once successfully processed.",
+    "Users must not use Pancity for fraudulent or illegal activities.",
+    "Pancity reserves the right to suspend or terminate accounts that violate these Terms.",
+    "Service availability may be affected by network providers or maintenance.",
+    "These Terms may be updated from time to time. Continued use of Pancity means you accept the updated Terms.",
+  ];
+
+  const privacyPoints = [
+    "Your privacy is important to us.",
+    "We collect only the information necessary to create and manage your Pancity account, such as your name, email address, phone number, and transaction records.",
+    "Your personal information is securely protected using industry-standard security measures.",
+    "We do not sell, rent, or share your personal information with third parties for marketing or commercial purposes.",
+    "Your information is used solely to provide, maintain, and improve Pancity services.",
+    "We are committed to keeping your information private and confidential.",
+    "If you have any questions or concerns about your privacy, you can contact our support team at any time.",
+  ];
+
+  const points = type === "terms" ? termsPoints : privacyPoints;
+
+  return (
+    <div className={`fixed inset-0 z-50 flex justify-center ${a.bg}`}>
+      <div className={`w-full max-w-sm min-h-screen ${a.bg} ${a.text} flex flex-col`}>
+        <div className="h-3" />
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+          <h2 className="text-base font-bold">{title}</h2>
+          <button onClick={onClose}>
+            <X size={20} className={a.subtext} />
+          </button>
+        </div>
+        <div className="overflow-y-auto px-6 pb-8">
+          <p className={`text-sm ${a.subtext} mb-3`}>{points[0]}</p>
+          <ul className="space-y-3">
+            {points.slice(1).map((point, i) => (
+              <li key={i} className={`text-sm ${a.subtext} flex gap-2`}>
+                <span className={`${a.accentText} mt-0.5`}>•</span>
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            onClick={onClose}
+            className={`w-full mt-6 font-semibold rounded-2xl py-3.5 text-white ${a.accent}`}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SnapInput({ icon: Icon, a, placeholder, value, onChange, type = "text", endIcon: EndIcon, onEndIconClick, maxLength }) {
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl ${a.inputBg} px-4 py-4`}>
+      <Icon size={18} className="text-slate-400" />
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        className={`flex-1 bg-transparent outline-none text-sm ${a.inputText}`}
+      />
+      {EndIcon && (
+        <button type="button" onClick={onEndIconClick}>
+          <EndIcon size={18} className="text-slate-400" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PinKeypad({ theme, value, onChange, error, onThumbprint, thumbprintBusy }) {
+  const digits = value.split("");
+
+  const press = (n) => {
+    if (value.length >= 4) return;
+    onChange(value + n);
+  };
+
+  const backspace = () => {
+    onChange(value.slice(0, -1));
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Dots */}
+      <div className="flex gap-3 mb-6">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className={`w-3 h-3 rounded-full border-2 transition-colors ${
+              error
+                ? "border-red-500 bg-red-500"
+                : digits[i]
+                ? "border-blue-500 bg-blue-500"
+                : `${theme.border} border`
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Keypad */}
+      <div className="grid grid-cols-3 gap-3 w-full max-w-[220px]">
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
+          <button
+            key={n}
+            onClick={() => press(n)}
+            className={`aspect-square rounded-full ${theme.pillBg} flex items-center justify-center text-base font-semibold active:scale-95 transition-transform`}
+          >
+            {n}
+          </button>
+        ))}
+        {onThumbprint ? (
+          <button
+            onClick={onThumbprint}
+            disabled={thumbprintBusy}
+            className={`aspect-square rounded-full border-2 flex items-center justify-center transition-colors ${
+              thumbprintBusy ? "border-blue-500 bg-blue-500/10" : "border-blue-500"
+            }`}
+          >
+            <Fingerprint
+              size={18}
+              className={`text-blue-400 ${thumbprintBusy ? "animate-pulse" : ""}`}
+            />
+          </button>
+        ) : (
+          <div />
+        )}
+        <button
+          onClick={() => press("0")}
+          className={`aspect-square rounded-full ${theme.pillBg} flex items-center justify-center text-base font-semibold active:scale-95 transition-transform`}
+        >
+          0
+        </button>
+        <button
+          onClick={backspace}
+          className="aspect-square rounded-full flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <X size={16} className={theme.subtext} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AuthInput({ icon: Icon, theme, placeholder, value, onChange, type = "text" }) {
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 ${theme.input}`}>
+      <Icon size={18} className={theme.subtext} />
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1 bg-transparent outline-none text-sm"
+      />
+    </div>
+  );
+}
+
+function NavItem({ icon: Icon, label, active, theme, onClick }) {
+  return (
+    <button onClick={onClick} className="flex flex-col items-center gap-1">
+      <Icon size={20} className={active ? "text-blue-400" : theme.navInactive} />
+      <span
+        className={`text-[10px] font-medium tracking-wide ${
+          active ? "text-blue-400" : theme.navInactive
+        }`}
+      >
+        {label.toUpperCase()}
+      </span>
+    </button>
+  );
+}
+
+// Auto-scales the whole app to fit the current device width.
+// The UI is designed for a ~390px-wide phone; this scales it up or down
+// so it fills small phones, large phones, and (within reason) tablets,
+// without needing to touch every screen's layout.
+const AUTOSCALE_BASE_WIDTH = 390;
+const AUTOSCALE_MIN = 0.75;
+const AUTOSCALE_MAX = 1.4;
+
+function AutoScale({ children }) {
+  const [scale, setScale] = useState(1);
+  // `transform: scale()` forces the browser to rasterize the ENTIRE tall,
+  // scrollable app as one giant bitmap layer and repaint/reposition it on
+  // every scroll frame — this is the main cause of scroll lag here.
+  // `zoom` instead scales real layout (like changing root font-size), so
+  // the browser scrolls it the normal cheap way. It's supported by all
+  // current mobile browsers (iOS Safari 15.4+, all Chrome/Android).
+  const supportsZoom = React.useMemo(
+    () => typeof CSS !== "undefined" && CSS.supports && CSS.supports("zoom", "1"),
+    []
+  );
+
+  useEffect(() => {
+    const updateScale = () => {
+      const viewportWidth = window.innerWidth;
+      const raw = viewportWidth / AUTOSCALE_BASE_WIDTH;
+      setScale(Math.min(Math.max(raw, AUTOSCALE_MIN), AUTOSCALE_MAX));
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, []);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        minHeight: "100vh",
+        overflowX: "hidden",
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={
+          supportsZoom
+            ? { width: AUTOSCALE_BASE_WIDTH, zoom: scale, position: "relative" }
+            : { width: AUTOSCALE_BASE_WIDTH, transform: `scale(${scale})`, transformOrigin: "top center", position: "relative" }
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default function VTUDashboard() {
+  return (
+    <AutoScale>
+      <VTUDashboardInner />
+    </AutoScale>
+  );
+}
