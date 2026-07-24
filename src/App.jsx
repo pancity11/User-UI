@@ -734,8 +734,7 @@ function VTUDashboardInner() {
           const meta = TX_META[service] || { title: tx.type, icon: Clock };
           return {
             title: meta.title,
-            description: tx.planName ? `${meta.title} — ${tx.planName}` : `${meta.title} to ${tx.target}`,
-            service,
+            description: tx.planName ? `${meta.title} — ${tx.planName} (₦${tx.amount.toLocaleString()})` : `${meta.title} to ${tx.target}`,
             amount: tx.amount,
             reference: tx.reference,
             date: tx.createdAt,
