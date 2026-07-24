@@ -733,6 +733,7 @@ function VTUDashboardInner() {
             tx.type;
           const meta = TX_META[service] || { title: tx.type, icon: Clock };
           return {
+            service,
             title: meta.title,
             description: tx.planName ? `${meta.title} — ${tx.planName} (₦${tx.amount.toLocaleString()})` : `${meta.title} to ${tx.target}`,
             amount: tx.amount,
