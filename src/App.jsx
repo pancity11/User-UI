@@ -1158,13 +1158,13 @@ function VTUDashboardInner() {
     }
   };
 
-  // Verifies the app-lock PIN against the backend (POST /auth/user/verify-pin,
-  // same convention as /auth/user/pin) instead of comparing it client-side
-  // against a plaintext copy sitting in React state.
+  // Verifies the app-lock PIN against the backend (POST /auth/user/pin/verify)
+  // instead of comparing it client-side against a plaintext copy sitting in
+  // React state.
   const handleLockPinChange = (digits) => {
     setLockPin(digits);
     if (digits.length === 4) {
-      apiFetch("/auth/user/verify-pin", { method: "POST", body: { pin: digits } })
+      apiFetch("/auth/user/pin/verify", { method: "POST", body: { pin: digits } })
         .then(() => {
           setLockPinError(false);
           setTimeout(() => {
