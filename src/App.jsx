@@ -356,8 +356,9 @@ const SERVICE_FIELDS = {
 
 const PLAN_TYPES = [
   { label: "SME", enabled: true },
-  { label: "GIFTING", enabled: true },
-  { label: "CORPORATE", enabled: true },
+  { label: "Corporate", enabled: true },
+  { label: "Gifting", enabled: true },
+  { label: "Direct Topup", enabled: true },
 ];
 const ACCOUNT_TIERS = [
   {
@@ -386,7 +387,7 @@ function getPlanPrice(basePrice, tierId) {
 }
 
 // Data bundles + prices are entirely admin-managed — there is nothing
-// hardcoded here. The real list comes from GET /admin/data-plans and is
+// hardcoded here. The real list comes from GET /plans?category=data and is
 // loaded into the `dataPlans` state below; until the admin has added at
 // least one plan there, "AVAILABLE BUNDLES" will correctly show nothing.
 
@@ -702,7 +703,7 @@ function VTUDashboardInner() {
   const [txStatus, setTxStatus] = useState("Completed");
   const [savedBankAccount, setSavedBankAccount] = useState(null); // { bankName, accountNumber }
   // Data bundles + prices as configured by the admin — empty until GET
-  // /admin/data-plans (in the effect below) returns whatever they've added.
+  // /plans?category=data (in the effect below) returns whatever they've added.
   const [dataPlans, setDataPlans] = useState([]);
 
   // Loads the real wallet balance + transaction history the moment the
@@ -761,9 +762,19 @@ function VTUDashboardInner() {
         }
       }
       try {
-        const plans = await apiFetch("/admin/data-plans");
+        const plans = await apiFetch("/plans?category=data", { auth: false });
         if (cancelled) return;
-        setDataPlans(plans.items || plans.plans || []);
+        const list = Array.isArray(plans) ? plans : plans.items || plans.plans || [];
+        setDataPlans(
+          list.map((p) => ({
+            label: p.size || p.name,
+            price: p.price,
+            enabled: p.active !== false,
+            type: p.subCategory,
+            duration: p.validity,
+            network: p.provider,
+          }))
+        );
       } catch (err) {
         if (!cancelled) {
           console.error("Data plans load failed:", err.message);
@@ -2978,7 +2989,7 @@ function ServiceField({ field, value, onChange, theme, formState, accountTier, d
 
   if (field === "plan") {
     const plans = (dataPlans || []).filter(
-      (p) => p.enabled && p.type === formState?.planType
+      (p) => p.enabled && p.type === formState?.planType && (!p.network || p.network === formState?.network)
     );
 
     return (
