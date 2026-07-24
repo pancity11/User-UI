@@ -4,13 +4,12 @@ import { Eye, EyeOff, Bell, ChevronRight, Database, Smartphone, Tv, ArrowLeftRig
 /* ------------------------------------------------------------------ */
 /*  Backend API connection                                             */
 /* ------------------------------------------------------------------ */
-// Point this at your deployed pancity-backend by setting REACT_APP_API_BASE
-// in your .env file (and in Render's Environment tab for production), e.g.
-// REACT_APP_API_BASE=https://pancity-backend.onrender.com/api
-// Until it's set, signup/login will show a clear error instead of silently
-// letting anyone into the app.
+// Point this at your deployed pancity-backend, e.g.
+// "https://xxxx-3000.csb.app/api". Until it's set, signup/login will show
+// a clear error instead of silently letting anyone into the app.
 const API_BASE =
-  typeof process !== "undefined" && process.env && process.env.REACT_APP_API_BASE;
+  (typeof process !== "undefined" && process.env && process.env.REACT_APP_API_BASE) ||
+  "https://pancity-backend.onrender.com/api";
 
 // Kept in module scope (not React state) so any component/helper in this
 // file can attach it to a request without prop-drilling a token through
